@@ -129,7 +129,7 @@ export function setupAutoUpdater(mainWindow: BrowserWindow) {
     //       if (response === 0) {
     //         // 打开GitHub发布页面，让用户手动下载
     //         const releaseUrl =
-    //           'https://github.com/buxuku/SmartSub/releases/latest';
+    //           'https://github.com/your-repo/y18/releases/latest';
     //         require('electron').shell.openExternal(releaseUrl);
     //       }
     //     });
@@ -145,7 +145,7 @@ export function setupAutoUpdater(mainWindow: BrowserWindow) {
     // 针对Mac平台的特殊处理
     if (process.platform === 'darwin') {
       // 打开GitHub发布页面，让用户手动下载
-      const releaseUrl = 'https://github.com/buxuku/SmartSub/releases/latest';
+      const releaseUrl = 'https://github.com/c1/c1/releases/latest';
       require('electron').shell.openExternal(releaseUrl);
       return { success: true, manualDownload: true };
     }

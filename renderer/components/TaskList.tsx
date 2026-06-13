@@ -109,7 +109,7 @@ const TaskList: React.FC<TaskListProps> = ({
               </TableHead>
             )}
             <TableHead className="w-[80px] text-center">
-              {t('proofread') || '校对'}
+              {t('proofread')}
             </TableHead>
           </TableRow>
         </TableHeader>

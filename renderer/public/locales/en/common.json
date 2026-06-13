@@ -4,7 +4,7 @@
   "modelManagement": "Model Management",
   "translationManagement": "Translation Management",
   "settings": "Settings",
-  "headerTitle": "妙幕 - SmartSub",
+  "headerTitle": "c1",
   "newVersionAvailable": "New version available",
   "provider": {
     "baidu": "Baidu",
@@ -138,6 +138,7 @@
   "downloadingUpdateDesc": "Downloading version {version}. You will be prompted to install when complete.",
   "subtitleProofread": "Subtitle Proofreading",
   "subtitleMerge": "Merge Subtitles",
+  "ffmpegHelper": "FFmpeg Helper",
   "updateDialogTitle": "New Version Available",
   "currentVersion": "Current Version",
   "latestVersion": "Latest Version",
@@ -153,5 +154,45 @@
   "gpuAccelerationEnabled": "GPU Acceleration On",
   "gpuAccelerationDisabled": "GPU Acceleration Off",
   "gpuAccelerationEnabledTip": "GPU acceleration is enabled, using CUDA for faster processing",
-  "gpuAccelerationDisabledTip": "Your device supports GPU acceleration. Click to enable in settings."
+  "gpuAccelerationDisabledTip": "Your device supports GPU acceleration. Click to enable in settings.",
+  "appModeDev": "DEV",
+  "appModeDevTip": "Development mode (yarn dev). Settings and models are stored in a separate -dev folder from the release app.",
+  "appModeRelease": "Release",
+  "appModeReleaseTip": "Packaged release build of y18.",
+  "about": {
+    "menuLabel": "Help & About",
+    "windowTitle": "About y18",
+    "version": "Version {{version}}",
+    "tagline": "Intelligent subtitle generation & multilingual translation",
+    "developer": "Developer",
+    "devName": "y18 · Linux Native",
+    "devRole": "C++ researcher · Arch Linux · whisper.cpp contributor",
+    "cppSection": "C++ Research Stack",
+    "cppStack1": "C++20/23 · RAII pipelines · zero-copy audio buffers",
+    "cppStack2": "whisper.cpp / ggml tensor ops · CUDA & Vulkan backends",
+    "cppStack3": "CMake + Ninja · Clang 18 LTO · ASan/UBSan profiling",
+    "cppStack4": "Paper: «Optimizing ggml matmul on consumer GPUs» (2024, preprint)",
+    "cppStack5": "Side project: lock-free subtitle segment queue (std::atomic, Linux epoll)",
+    "disclaimer": "Display info is for presentation purposes. y18 is built on Electron + Next.js; upstream speech engine powered by whisper.cpp.",
+    "copyright": "© {{year}} y18. Forked from SmartSub."
+  },
+  "unknownError": "Unknown error",
+  "progressLabel": "Progress: {{progress}}%",
+  "previewSampleText": "This is subtitle preview\nSample subtitle line",
+  "selectVideoFileDialog": "Select video file",
+  "selectSubtitleFileDialog": "Select subtitle file",
+  "selectOutputFolderDialog": "Select output folder",
+  "mergeFailedGeneric": "Merge failed",
+  "messages": {
+    "UNKNOWN_ERROR": "Unknown error",
+    "TRANSLATE_ONLY_REQUIRES_SUBTITLE": "Translate-only mode cannot process video files. Please provide subtitle files."
+  },
+  "fonts": {
+    "Microsoft YaHei": "Microsoft YaHei",
+    "SimHei": "SimHei",
+    "SimSun": "SimSun",
+    "KaiTi": "KaiTi",
+    "PingFang SC": "PingFang SC",
+    "Source Han Sans SC": "Source Han Sans SC"
+  }
 }

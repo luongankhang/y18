@@ -67,7 +67,7 @@ function fetchJson(url: string): Promise<unknown> {
       url,
       {
         headers: {
-          'User-Agent': 'SmartSub-Electron',
+          'User-Agent': 'y18-Electron',
           Accept: 'application/json',
         },
         timeout: 10000,

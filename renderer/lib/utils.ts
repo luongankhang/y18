@@ -11,6 +11,8 @@ export interface ModelInfo {
   needsCoreML: boolean;
   isQuantized?: boolean;
   isEnglishOnly?: boolean;
+  /** Parameter count label, e.g. "39M" */
+  params?: string;
 }
 
 export interface ModelCategory {
@@ -28,24 +30,27 @@ export const modelCategories: ModelCategory[] = [
     quality: 2,
     minRAM: 2,
     models: [
-      { name: 'tiny', size: '75 MB', needsCoreML: true },
+      { name: 'tiny', size: '75 MB', needsCoreML: true, params: '39M' },
       {
         name: 'tiny-q5_1',
         size: '32.2 MB',
         needsCoreML: false,
         isQuantized: true,
+        params: '39M',
       },
       {
         name: 'tiny-q8_0',
         size: '43.5 MB',
         needsCoreML: false,
         isQuantized: true,
+        params: '39M',
       },
       {
         name: 'tiny.en',
         size: '77.7 MB',
         needsCoreML: true,
         isEnglishOnly: true,
+        params: '39M',
       },
       {
         name: 'tiny.en-q5_1',
@@ -53,6 +58,7 @@ export const modelCategories: ModelCategory[] = [
         needsCoreML: false,
         isQuantized: true,
         isEnglishOnly: true,
+        params: '39M',
       },
       {
         name: 'tiny.en-q8_0',
@@ -60,6 +66,7 @@ export const modelCategories: ModelCategory[] = [
         needsCoreML: false,
         isQuantized: true,
         isEnglishOnly: true,
+        params: '39M',
       },
     ],
   },
@@ -69,24 +76,27 @@ export const modelCategories: ModelCategory[] = [
     quality: 3,
     minRAM: 4,
     models: [
-      { name: 'base', size: '148 MB', needsCoreML: true },
+      { name: 'base', size: '148 MB', needsCoreML: true, params: '74M' },
       {
         name: 'base-q5_1',
         size: '59.7 MB',
         needsCoreML: false,
         isQuantized: true,
+        params: '74M',
       },
       {
         name: 'base-q8_0',
         size: '81.8 MB',
         needsCoreML: false,
         isQuantized: true,
+        params: '74M',
       },
       {
         name: 'base.en',
         size: '148 MB',
         needsCoreML: true,
         isEnglishOnly: true,
+        params: '74M',
       },
       {
         name: 'base.en-q5_1',
@@ -94,6 +104,7 @@ export const modelCategories: ModelCategory[] = [
         needsCoreML: false,
         isQuantized: true,
         isEnglishOnly: true,
+        params: '74M',
       },
       {
         name: 'base.en-q8_0',
@@ -101,6 +112,7 @@ export const modelCategories: ModelCategory[] = [
         needsCoreML: false,
         isQuantized: true,
         isEnglishOnly: true,
+        params: '74M',
       },
     ],
   },
@@ -110,24 +122,27 @@ export const modelCategories: ModelCategory[] = [
     quality: 4,
     minRAM: 6,
     models: [
-      { name: 'small', size: '488 MB', needsCoreML: true },
+      { name: 'small', size: '488 MB', needsCoreML: true, params: '244M' },
       {
         name: 'small-q5_1',
         size: '190 MB',
         needsCoreML: false,
         isQuantized: true,
+        params: '244M',
       },
       {
         name: 'small-q8_0',
         size: '264 MB',
         needsCoreML: false,
         isQuantized: true,
+        params: '244M',
       },
       {
         name: 'small.en',
         size: '488 MB',
         needsCoreML: true,
         isEnglishOnly: true,
+        params: '244M',
       },
       {
         name: 'small.en-q5_1',
@@ -135,6 +150,7 @@ export const modelCategories: ModelCategory[] = [
         needsCoreML: false,
         isQuantized: true,
         isEnglishOnly: true,
+        params: '244M',
       },
       {
         name: 'small.en-q8_0',
@@ -142,6 +158,7 @@ export const modelCategories: ModelCategory[] = [
         needsCoreML: false,
         isQuantized: true,
         isEnglishOnly: true,
+        params: '244M',
       },
     ],
   },
@@ -151,24 +168,27 @@ export const modelCategories: ModelCategory[] = [
     quality: 5,
     minRAM: 10,
     models: [
-      { name: 'medium', size: '1.53 GB', needsCoreML: true },
+      { name: 'medium', size: '1.53 GB', needsCoreML: true, params: '769M' },
       {
         name: 'medium-q5_0',
         size: '539 MB',
         needsCoreML: false,
         isQuantized: true,
+        params: '769M',
       },
       {
         name: 'medium-q8_0',
         size: '823 MB',
         needsCoreML: false,
         isQuantized: true,
+        params: '769M',
       },
       {
         name: 'medium.en',
         size: '1.53 GB',
         needsCoreML: true,
         isEnglishOnly: true,
+        params: '769M',
       },
       {
         name: 'medium.en-q5_0',
@@ -176,6 +196,7 @@ export const modelCategories: ModelCategory[] = [
         needsCoreML: false,
         isQuantized: true,
         isEnglishOnly: true,
+        params: '769M',
       },
       {
         name: 'medium.en-q8_0',
@@ -183,6 +204,7 @@ export const modelCategories: ModelCategory[] = [
         needsCoreML: false,
         isQuantized: true,
         isEnglishOnly: true,
+        params: '769M',
       },
     ],
   },
@@ -192,18 +214,25 @@ export const modelCategories: ModelCategory[] = [
     quality: 5,
     minRAM: 10,
     models: [
-      { name: 'large-v3-turbo', size: '1.62 GB', needsCoreML: true },
+      {
+        name: 'large-v3-turbo',
+        size: '1.62 GB',
+        needsCoreML: true,
+        params: '809M',
+      },
       {
         name: 'large-v3-turbo-q5_0',
         size: '574 MB',
         needsCoreML: false,
         isQuantized: true,
+        params: '809M',
       },
       {
         name: 'large-v3-turbo-q8_0',
         size: '874 MB',
         needsCoreML: false,
         isQuantized: true,
+        params: '809M',
       },
     ],
   },
@@ -213,27 +242,30 @@ export const modelCategories: ModelCategory[] = [
     quality: 5,
     minRAM: 16,
     models: [
-      { name: 'large-v3', size: '3.1 GB', needsCoreML: true },
+      { name: 'large-v3', size: '3.1 GB', needsCoreML: true, params: '1550M' },
       {
         name: 'large-v3-q5_0',
         size: '1.08 GB',
         needsCoreML: false,
         isQuantized: true,
+        params: '1550M',
       },
-      { name: 'large-v2', size: '3.09 GB', needsCoreML: true },
+      { name: 'large-v2', size: '3.09 GB', needsCoreML: true, params: '1550M' },
       {
         name: 'large-v2-q5_0',
         size: '1.08 GB',
         needsCoreML: false,
         isQuantized: true,
+        params: '1550M',
       },
       {
         name: 'large-v2-q8_0',
         size: '1.66 GB',
         needsCoreML: false,
         isQuantized: true,
+        params: '1550M',
       },
-      { name: 'large-v1', size: '3.09 GB', needsCoreML: true },
+      { name: 'large-v1', size: '3.09 GB', needsCoreML: true, params: '1550M' },
     ],
   },
 ];

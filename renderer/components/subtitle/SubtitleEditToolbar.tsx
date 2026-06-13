@@ -194,9 +194,7 @@ Only respond with the translated/improved text, nothing else.`;
     });
 
     onSubtitlesChange(newSubtitles);
-    toast.success(
-      t('replaceSuccess', { count: matchCount }) || `已替换 ${matchCount} 处`,
-    );
+    toast.success(t('replaceSuccess', { count: matchCount }));
     setShowSearchReplace(false);
     setSearchText('');
     setReplaceText('');
@@ -677,10 +675,10 @@ Only respond with the translated/improved text, nothing else.`;
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              {t('mergeHint') ||
-                '将合并第 {{start}} 到第 {{end}} 条字幕'
-                  .replace('{{start}}', String(mergeStart + 1))
-                  .replace('{{end}}', String(mergeEnd))}
+              {t('mergeHint', {
+                start: mergeStart + 1,
+                end: mergeEnd,
+              })}
             </p>
           </div>
           <DialogFooter>

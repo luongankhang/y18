@@ -103,8 +103,8 @@ export async function exportConfig(
 
     const result = await dialog.showSaveDialog({
       title: 'Export Configuration',
-      defaultPath: `smartsub-config-${new Date().toISOString().slice(0, 10)}.vsm`,
-      filters: [{ name: 'SmartSub Config', extensions: ['vsm'] }],
+      defaultPath: `y18-config-${new Date().toISOString().slice(0, 10)}.vsm`,
+      filters: [{ name: 'y18 Config', extensions: ['vsm'] }],
     });
 
     if (result.canceled || !result.filePath) {
@@ -131,7 +131,7 @@ export async function importConfig(
   try {
     const result = await dialog.showOpenDialog({
       title: 'Import Configuration',
-      filters: [{ name: 'SmartSub Config', extensions: ['vsm'] }],
+      filters: [{ name: 'y18 Config', extensions: ['vsm'] }],
       properties: ['openFile'],
     });
 

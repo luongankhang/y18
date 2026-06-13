@@ -23,18 +23,6 @@ const ALIGNMENT_GRID: SubtitleAlignment[][] = [
   [1, 2, 3], // 底部行
 ];
 
-const ALIGNMENT_LABELS: Record<SubtitleAlignment, string> = {
-  1: '左下',
-  2: '中下',
-  3: '右下',
-  4: '左中',
-  5: '居中',
-  6: '右中',
-  7: '左上',
-  8: '中上',
-  9: '右上',
-};
-
 export default function AlignmentSelector({
   value,
   onChange,
@@ -43,7 +31,7 @@ export default function AlignmentSelector({
   const { t } = useTranslation('subtitleMerge');
 
   return (
-    <div className="inline-grid grid-cols-3 gap-1 p-1 bg-muted rounded-lg">
+    <div className="inline-grid grid-cols-3 gap-1.5 p-2 bg-muted rounded-lg mt-1">
       {ALIGNMENT_GRID.map((row, rowIndex) => (
         <React.Fragment key={rowIndex}>
           {row.map((alignment) => (
@@ -52,7 +40,7 @@ export default function AlignmentSelector({
               type="button"
               onClick={() => onChange(alignment)}
               disabled={disabled}
-              title={t(`align${alignment}`) || ALIGNMENT_LABELS[alignment]}
+              title={t(`align${alignment}`)}
               className={`
                 w-8 h-8 rounded flex items-center justify-center text-xs font-medium
                 transition-colors
@@ -64,7 +52,6 @@ export default function AlignmentSelector({
                 ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
               `}
             >
-              {/* 使用小圆点指示位置 */}
               <span
                 className={`w-2 h-2 rounded-full ${
                   value === alignment

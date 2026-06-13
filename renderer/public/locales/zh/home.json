@@ -334,5 +334,6 @@
   "batchOptimizeFailed": "批量优化失败",
   "noSubtitlesToOptimize": "没有可优化的字幕",
   "noOptimizationsSelected": "请选择要采纳的优化结果",
-  "optimizationsApplied": "已应用 {{count}} 条优化"
+  "optimizationsApplied": "已应用 {{count}} 条优化",
+  "batchOptimizeCompletedSummary": "优化完成：{{success}}/{{total}} 条成功"
 }

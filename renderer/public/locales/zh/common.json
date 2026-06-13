@@ -4,7 +4,7 @@
   "modelManagement": "模型管理",
   "translationManagement": "翻译管理",
   "settings": "设置",
-  "headerTitle": "妙幕 - SmartSub",
+  "headerTitle": "c1",
   "newVersionAvailable": "有新版本可用",
   "provider": {
     "baidu": "百度翻译",
@@ -138,6 +138,7 @@
   "downloadingUpdateDesc": "正在下载版本 {version}，下载完成后将提示安装。",
   "subtitleProofread": "字幕校对",
   "subtitleMerge": "视频合字幕",
+  "ffmpegHelper": "FFmpeg 助手",
   "updateDialogTitle": "发现新版本",
   "currentVersion": "当前版本",
   "latestVersion": "最新版本",
@@ -153,5 +154,45 @@
   "gpuAccelerationEnabled": "显卡加速已开启",
   "gpuAccelerationDisabled": "显卡加速未启用",
   "gpuAccelerationEnabledTip": "GPU 加速已启用，正在使用 CUDA 加速处理",
-  "gpuAccelerationDisabledTip": "您的设备支持 GPU 加速，点击前往设置启用"
+  "gpuAccelerationDisabledTip": "您的设备支持 GPU 加速，点击前往设置启用",
+  "appModeDev": "开发版",
+  "appModeDevTip": "开发模式 (yarn dev)。配置与模型保存在独立的 -dev 目录，与正式安装版互不影响。",
+  "appModeRelease": "正式版",
+  "appModeReleaseTip": "y18 打包发布版本。",
+  "about": {
+    "menuLabel": "帮助与关于",
+    "windowTitle": "关于 y18",
+    "version": "版本 {{version}}",
+    "tagline": "智能字幕生成与多语言翻译",
+    "developer": "开发者",
+    "devName": "y18 · Linux 原生派",
+    "devRole": "C++ 研究者 · Arch Linux · whisper.cpp 贡献者",
+    "cppSection": "C++ 研究栈",
+    "cppStack1": "C++20/23 · RAII 流水线 · 零拷贝音频缓冲",
+    "cppStack2": "whisper.cpp / ggml 张量运算 · CUDA 与 Vulkan 后端",
+    "cppStack3": "CMake + Ninja · Clang 18 LTO · ASan/UBSan 性能分析",
+    "cppStack4": "论文：《消费级 GPU 上 ggml 矩阵乘法优化》(2024, 预印本)",
+    "cppStack5": "业余项目：无锁字幕分段队列 (std::atomic, Linux epoll)",
+    "disclaimer": "展示信息仅供界面呈现。y18 基于 Electron + Next.js 构建；语音识别引擎来自 whisper.cpp。",
+    "copyright": "© {{year}} y18。Fork 自 SmartSub。"
+  },
+  "unknownError": "未知错误",
+  "progressLabel": "进度：{{progress}}%",
+  "previewSampleText": "这是字幕预览效果\n字幕示例行",
+  "selectVideoFileDialog": "选择视频文件",
+  "selectSubtitleFileDialog": "选择字幕文件",
+  "selectOutputFolderDialog": "选择输出文件夹",
+  "mergeFailedGeneric": "合并失败",
+  "messages": {
+    "UNKNOWN_ERROR": "未知错误",
+    "TRANSLATE_ONLY_REQUIRES_SUBTITLE": "只翻译模式下不能处理视频文件，请提供字幕文件"
+  },
+  "fonts": {
+    "Microsoft YaHei": "微软雅黑",
+    "SimHei": "黑体",
+    "SimSun": "宋体",
+    "KaiTi": "楷体",
+    "PingFang SC": "苹方",
+    "Source Han Sans SC": "思源黑体"
+  }
 }

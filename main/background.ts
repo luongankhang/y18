@@ -13,10 +13,10 @@ import { setupTaskProcessor } from './helpers/taskProcessor';
 import { setupSystemInfoManager } from './helpers/systemInfoManager';
 import { setupStoreHandlers, store } from './helpers/storeManager';
 import { setupTaskManager } from './helpers/taskManager';
-import { setupAutoUpdater } from './helpers/updater';
 import { setupParameterHandlers } from './helpers/ipcParameterHandlers';
 import { setupProofreadHandlers } from './helpers/ipcProofreadHandlers';
 import { setupSubtitleMergeHandlers } from './helpers/ipcSubtitleMergeHandlers';
+import { setupFfmpegHandlers } from './helpers/ipcFfmpegHandlers';
 import { configurationManager } from './service/configurationManager';
 import {
   registerAddonIpcHandlers,
@@ -51,6 +51,7 @@ if (isProd) {
   setupStoreHandlers();
   setupParameterHandlers();
   setupProofreadHandlers();
+  setupFfmpegHandlers();
   registerAddonIpcHandlers();
 
   // Initialize configuration manager
@@ -85,14 +86,14 @@ if (isProd) {
   } else {
     const port = process.argv[2];
     await mainWindow.loadURL(`http://localhost:${port}/${userLanguage}/home/`);
-    mainWindow.webContents.openDevTools();
+    // mainWindow.webContents.openDevTools();
   }
 
   setupIpcHandlers(mainWindow);
   setupTaskProcessor(mainWindow);
   setupSystemInfoManager(mainWindow);
   setupTaskManager();
-  setupAutoUpdater(mainWindow);
+  // setupAutoUpdater(mainWindow);
   setupSubtitleMergeHandlers(mainWindow);
   setMainWindowForAddon(mainWindow);
 })();

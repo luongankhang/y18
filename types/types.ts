@@ -3,6 +3,10 @@ export interface ISystemInfo {
   modelsPath: string;
   downloadingModels: string[];
   totalMemoryGB?: number;
+  appName?: string;
+  appMode?: 'dev' | 'release';
+  isPackaged?: boolean;
+  userDataPath?: string;
 }
 
 export interface IFiles {

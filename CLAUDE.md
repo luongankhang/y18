@@ -4,10 +4,13 @@
 
 ## Project Context
 
+- **Project Name**: y18（基于 SmartSub 的本地定制分支）
+- **Upstream / Colab**: [buxuku/SmartSub](https://github.com/buxuku/SmartSub)（开源协作上游）
 - **Current Branch**: `[BRANCH_NAME]` (if applicable)
 - **Main Branch**: `[DEFAULT_BRANCH]` (for PRs)
 - **Active Work**: `[CURRENT_FOCUS]` (if applicable)
 - **Task Documents**: `[TASK_DOC_PATH]` (if applicable)
+- **Dev vs Release**: 见 [Y18.md](./Y18.md) — Dev=`yarn dev`（userData 带 `-dev`），Release=打包安装版
 
 ## Universal Execution Rules
 

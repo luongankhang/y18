@@ -12,13 +12,13 @@ export default function SubtitleMergePage() {
   const { t } = useTranslation('subtitleMerge');
 
   const handleComplete = (outputPath: string) => {
-    toast.success(t('mergeSuccess') || '视频生成成功', {
+    toast.success(t('mergeSuccess'), {
       description: outputPath,
     });
   };
 
   const handleError = (error: string) => {
-    toast.error(t('mergeError') || '视频生成失败', {
+    toast.error(t('mergeError'), {
       description: error,
     });
   };

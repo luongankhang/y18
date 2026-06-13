@@ -243,8 +243,10 @@ IMPORTANT: Return ONLY a valid JSON object with subtitle IDs as keys and optimiz
         setSummary(result.data.summary);
         setStep('review');
         toast.success(
-          t('batchOptimizeCompleted') ||
-            `优化完成：${result.data.summary.success}/${result.data.summary.total} 条成功`,
+          t('batchOptimizeCompletedSummary', {
+            success: result.data.summary.success,
+            total: result.data.summary.total,
+          }),
         );
       } else {
         toast.error(result.error || t('batchOptimizeFailed') || '批量优化失败');

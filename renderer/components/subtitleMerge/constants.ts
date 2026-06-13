@@ -155,13 +155,13 @@ export const FONT_LIST = [
   { value: 'Roboto', label: 'Roboto' },
   { value: 'Impact', label: 'Impact' },
   // 中文字体
-  { value: 'Microsoft YaHei', label: '微软雅黑' },
-  { value: 'SimHei', label: '黑体' },
-  { value: 'SimSun', label: '宋体' },
-  { value: 'KaiTi', label: '楷体' },
-  { value: 'PingFang SC', label: '苹方' },
+  { value: 'Microsoft YaHei', label: 'Microsoft YaHei' },
+  { value: 'SimHei', label: 'SimHei' },
+  { value: 'SimSun', label: 'SimSun' },
+  { value: 'KaiTi', label: 'KaiTi' },
+  { value: 'PingFang SC', label: 'PingFang SC' },
   { value: 'Noto Sans SC', label: 'Noto Sans SC' },
-  { value: 'Source Han Sans SC', label: '思源黑体' },
+  { value: 'Source Han Sans SC', label: 'Source Han Sans SC' },
 ];
 
 /**

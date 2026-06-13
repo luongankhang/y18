@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'next-i18next';
 import { CircleCheck, Loader, Pause, RedoDot, AlertCircle } from 'lucide-react';
 import {
   Tooltip,
@@ -8,6 +9,8 @@ import {
 } from './ui/tooltip';
 
 const TaskStatus = ({ file, checkKey, skip = false }) => {
+  const { t } = useTranslation('common');
+
   if (skip) return <RedoDot className="size-4" />;
 
   // 状态调试：检查进度与状态的一致性
@@ -45,7 +48,7 @@ const TaskStatus = ({ file, checkKey, skip = false }) => {
 
   if (status === 'error') {
     const errorKey = `${checkKey}Error`;
-    const errorMsg = file[errorKey] || '未知错误';
+    const errorMsg = file[errorKey] || t('unknownError');
 
     return (
       <TooltipProvider>
@@ -56,7 +59,9 @@ const TaskStatus = ({ file, checkKey, skip = false }) => {
           <TooltipContent>
             <p>{errorMsg}</p>
             {progress !== undefined && (
-              <p className="text-xs text-gray-500 mt-1">进度：{progress}%</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {t('progressLabel', { progress })}
+              </p>
             )}
           </TooltipContent>
         </Tooltip>

@@ -29,25 +29,29 @@ export default function BasicStyleSettings({
   onUpdateStyle,
   disabled = false,
 }: BasicStyleSettingsProps) {
-  const { t } = useTranslation('subtitleMerge');
+  const { t } = useTranslation(['subtitleMerge', 'common']);
 
   return (
     <div className="space-y-4">
       {/* 字体选择 */}
       <div className="space-y-2">
-        <Label className="text-sm">{t('fontFamily') || '字体'}</Label>
+        <Label className="text-sm">{t('fontFamily')}</Label>
         <Select
           value={style.fontName}
           onValueChange={(value) => onUpdateStyle({ fontName: value })}
           disabled={disabled}
         >
           <SelectTrigger>
-            <SelectValue placeholder={t('selectFont') || '选择字体'} />
+            <SelectValue placeholder={t('selectFont')} />
           </SelectTrigger>
           <SelectContent>
             {FONT_LIST.map((font) => (
               <SelectItem key={font.value} value={font.value}>
-                <span style={{ fontFamily: font.value }}>{font.label}</span>
+                <span style={{ fontFamily: font.value }}>
+                  {t(`common:fonts.${font.value}`, {
+                    defaultValue: font.label,
+                  })}
+                </span>
               </SelectItem>
             ))}
           </SelectContent>
@@ -117,8 +121,8 @@ export default function BasicStyleSettings({
       </div>
 
       {/* 对齐位置 */}
-      <div className="space-y-2">
-        <Label className="text-sm">{t('position') || '位置'}</Label>
+      <div className="space-y-4">
+        <Label className="text-sm block">{t('position') || '位置'}</Label>
         <AlignmentSelector
           value={style.alignment}
           onChange={(value) => onUpdateStyle({ alignment: value })}

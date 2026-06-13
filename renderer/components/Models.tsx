@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/select';
 import { useTranslation } from 'next-i18next';
 import { models } from 'lib/utils';
+import { formatModelDisplayName } from 'lib/whisperModelDisplay';
 
 interface IProps {
   modelsInstalled?: string[];
@@ -43,7 +44,7 @@ const Models = React.forwardRef<
         {availableModels.length > 0 ? (
           availableModels.map((model) => (
             <SelectItem value={model.toLowerCase()} key={model}>
-              {model}
+              {formatModelDisplayName(model, { shortId: true })}
             </SelectItem>
           ))
         ) : (

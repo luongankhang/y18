@@ -305,7 +305,7 @@ export class ModelDownloader {
       const protocol = parsedUrl.protocol === 'https:' ? https : http;
 
       const headers: Record<string, string> = {
-        'User-Agent': 'SmartSub-Electron',
+        'User-Agent': 'y18-Electron',
       };
 
       if (startByte > 0) {

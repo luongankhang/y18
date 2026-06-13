@@ -26,6 +26,11 @@ import {
   type ModelInfo,
   type ModelCategory,
 } from 'lib/utils';
+import {
+  capitalizeModelName,
+  findModelCategory,
+  stableModelUuid,
+} from 'lib/whisperModelDisplay';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ISystemInfo } from '../../../types/types';
@@ -84,7 +89,7 @@ function ModelRow({
   isDownloading: boolean;
   downSource: DownSource;
   onUpdate: () => void;
-  t: (key: string) => string;
+  t: (key: string, opts?: Record<string, unknown>) => string;
   globalDownloading: boolean;
 }) {
   const copyToClipboard = (text: string) => {
@@ -94,24 +99,50 @@ function ModelRow({
       .catch(() => toast.error(t('copyError'), { duration: 2000 }));
   };
 
+  const category = findModelCategory(model.name);
+  const displayName = capitalizeModelName(model.name);
+  const modelUuid = stableModelUuid(model.name);
+  const detailKey = `modelDetails.${model.name}`;
+  const detailText = t(detailKey, {
+    params: model.params ?? '—',
+    size: model.size,
+    ram: category?.minRAM ?? '—',
+    defaultValue: '',
+  });
+  const hasDetail = detailText && detailText !== detailKey;
+
   return (
-    <div className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-muted/50 transition-colors">
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        <span className="font-mono text-sm font-medium">{model.name}</span>
-        <span className="text-xs text-muted-foreground">{model.size}</span>
-        {model.isQuantized && (
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-            {t('quantizedLabel')}
-          </Badge>
-        )}
-        {model.isEnglishOnly && (
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-            {t('englishOnly')}
-          </Badge>
-        )}
+    <div className="flex items-center justify-between py-3 px-3 rounded-lg hover:bg-muted/50 transition-colors">
+      <div className="flex items-start gap-3 min-w-0 flex-1">
         {isInstalled && !isDownloading && (
-          <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
         )}
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold tracking-tight">
+              {displayName}
+            </span>
+            <code className="text-[10px] font-mono text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">
+              {modelUuid}
+            </code>
+            <span className="text-xs text-muted-foreground">{model.size}</span>
+            {model.isQuantized && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                {t('quantizedLabel')}
+              </Badge>
+            )}
+            {model.isEnglishOnly && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                {t('englishOnly')}
+              </Badge>
+            )}
+          </div>
+          {hasDetail && (
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              {detailText}
+            </p>
+          )}
+        </div>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
         <TooltipProvider>
@@ -186,6 +217,8 @@ function CategoryCard({
   const isDownloading = (name: string) =>
     systemInfo?.downloadingModels?.includes(name);
 
+  const categorySpec = t(`categorySpec.${category.id}`, { defaultValue: '' });
+
   return (
     <Card className={isRecommended ? 'border-primary/50 shadow-sm' : ''}>
       <CardHeader className="pb-3">
@@ -213,7 +246,7 @@ function CategoryCard({
             </CardDescription>
           </div>
         </div>
-        <div className="flex items-center gap-6 pt-2">
+        <div className="flex items-center gap-6 pt-2 flex-wrap">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Zap className="h-3.5 w-3.5" />
             <span>{t('speed')}</span>
@@ -231,7 +264,19 @@ function CategoryCard({
               {category.minRAM} GB
             </span>
           </div>
+          {category.models[0]?.params && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">
+                {t('paramsLabel', { params: category.models[0].params })}
+              </span>
+            </div>
+          )}
         </div>
+        {categorySpec && (
+          <p className="text-[11px] text-muted-foreground pt-1 border-t mt-2">
+            {categorySpec}
+          </p>
+        )}
       </CardHeader>
       <CardContent className="pt-0">
         <div className="space-y-0.5">

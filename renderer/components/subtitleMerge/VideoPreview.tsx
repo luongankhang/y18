@@ -24,9 +24,10 @@ export default function VideoPreview({
   videoPath,
   videoInfo,
   style,
-  sampleText = '这是字幕预览效果\nThis is subtitle preview',
+  sampleText,
 }: VideoPreviewProps) {
-  const { t } = useTranslation('subtitleMerge');
+  const { t } = useTranslation(['subtitleMerge', 'common']);
+  const previewText = sampleText ?? t('common:previewSampleText');
   const playerRef = useRef<ReactPlayer>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -75,13 +76,11 @@ export default function VideoPreview({
               />
 
               {/* CSS 模拟字幕叠加层 */}
-              <SubtitlePreviewOverlay style={style} text={sampleText} />
+              <SubtitlePreviewOverlay style={style} text={previewText} />
             </>
           ) : (
             <div className="text-muted-foreground text-center">
-              <p className="text-sm">
-                {t('selectVideoToPreview') || '请选择视频文件预览'}
-              </p>
+              <p className="text-sm">{t('selectVideoToPreview')}</p>
             </div>
           )}
         </div>

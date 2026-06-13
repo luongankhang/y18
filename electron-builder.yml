@@ -1,6 +1,6 @@
-appId: com.example.smartsub
-productName: SmartSub
-copyright: Copyright © 2024 buxuku
+appId: com.app.c1
+productName: c1
+copyright: Copyright © 2026 c1
 directories:
   output: dist
   buildResources: resources

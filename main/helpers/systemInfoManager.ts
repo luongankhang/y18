@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow, dialog } from 'electron';
+import { ipcMain, BrowserWindow, dialog, app } from 'electron';
 import os from 'os';
 import { getModelsInstalled, getPath, deleteModel } from './whisper';
 import { getModelDownloader } from './modelDownloader';
@@ -21,6 +21,10 @@ export function setupSystemInfoManager(mainWindow: BrowserWindow) {
       downloadingModels: Array.from(downloadingModels),
       buildInfo: getBuildInfo(),
       totalMemoryGB: Math.round(os.totalmem() / (1024 * 1024 * 1024)),
+      appName: app.getName(),
+      appMode: app.isPackaged ? 'release' : 'dev',
+      isPackaged: app.isPackaged,
+      userDataPath: app.getPath('userData'),
     };
   });
 

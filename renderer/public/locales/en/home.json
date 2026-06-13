@@ -328,5 +328,6 @@
   "batchOptimizeFailed": "Batch optimization failed",
   "noSubtitlesToOptimize": "No subtitles to optimize",
   "noOptimizationsSelected": "Please select optimizations to apply",
-  "optimizationsApplied": "Applied {{count}} optimizations"
+  "optimizationsApplied": "Applied {{count}} optimizations",
+  "batchOptimizeCompletedSummary": "Optimization completed: {{success}}/{{total}} succeeded"
 }

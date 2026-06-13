@@ -317,7 +317,11 @@ export const ProviderForm: React.FC<ProviderFormProps> = ({
               <SelectContent>
                 {options.map((option) => (
                   <SelectItem key={option} value={option}>
-                    {option}
+                    {field.key === 'structuredOutput'
+                      ? t(`structuredOutput_${option}`, {
+                          defaultValue: option,
+                        })
+                      : option}
                   </SelectItem>
                 ))}
               </SelectContent>

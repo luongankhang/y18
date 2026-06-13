@@ -97,7 +97,6 @@ const Settings = () => {
   const [tempDir, setTempDir] = useState('');
   const [customTempDir, setCustomTempDir] = useState('');
   const [useCustomTempDir, setUseCustomTempDir] = useState(false);
-  const [checkUpdateOnStartup, setCheckUpdateOnStartup] = useState(true);
   const [useVAD, setUseVAD] = useState(true);
   const [vadThreshold, setVADThreshold] = useState(0.5);
   const [vadMinSpeechDuration, setVADMinSpeechDuration] = useState(250);
@@ -122,7 +121,6 @@ const Settings = () => {
         setModelsPath(settings.modelsPath || '');
         setUseCustomTempDir(settings.useCustomTempDir || false);
         setCustomTempDir(settings.customTempDir || '');
-        setCheckUpdateOnStartup(settings.checkUpdateOnStartup !== false);
         setUseVAD(settings.useVAD !== false);
         setVADThreshold(settings.vadThreshold || 0.5);
         setVADMinSpeechDuration(settings.vadMinSpeechDuration || 250);
@@ -210,23 +208,6 @@ const Settings = () => {
       await window?.ipc?.invoke('setSettings', { useCustomTempDir: checked });
       toast.success(
         checked ? t('useCustomTempDirEnabled') : t('useCustomTempDirDisabled'),
-      );
-    } catch (error) {
-      toast.error(t('saveFailed'));
-    }
-  };
-
-  // 切换启动时检查更新
-  const handleCheckUpdateOnStartupChange = async (checked: boolean) => {
-    setCheckUpdateOnStartup(checked);
-    try {
-      await window?.ipc?.invoke('setSettings', {
-        checkUpdateOnStartup: checked,
-      });
-      toast.success(
-        checked
-          ? t('checkUpdateOnStartupEnabled')
-          : t('checkUpdateOnStartupDisabled'),
       );
     } catch (error) {
       toast.error(t('saveFailed'));
@@ -383,6 +364,7 @@ const Settings = () => {
               <SelectContent>
                 <SelectItem value="zh">{t('chinese')}</SelectItem>
                 <SelectItem value="en">{t('english')}</SelectItem>
+                <SelectItem value="vi">{t('vietnamese')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -426,26 +408,6 @@ const Settings = () => {
               onSave={handleWhisperCommandSave}
             />
           )}
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span>{t('checkUpdateOnStartup')}</span>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{t('checkUpdateOnStartupTip')}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            <Switch
-              checked={checkUpdateOnStartup}
-              onCheckedChange={handleCheckUpdateOnStartupChange}
-            />
-          </div>
 
           <div className="space-y-2">
             <div className="flex items-center gap-2">

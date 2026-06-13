@@ -19,6 +19,8 @@ import {
   Film,
   Zap,
   ZapOff,
+  CircleHelp,
+  Wrench,
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { openUrl } from 'lib/utils';
@@ -26,17 +28,12 @@ import { useRouter } from 'next/router';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 import { useTranslation } from 'next-i18next';
-import { UpdateDialog } from './UpdateDialog';
+// import { UpdateDialog } from './UpdateDialog';
+import { AboutDialog } from './AboutDialog';
 import packageInfo from '../../package.json';
+import { translateAppMessage } from '../lib/i18n';
 
-// 添加更新状态的类型定义
-interface UpdateStatus {
-  status: string;
-  version?: string;
-  progress?: number;
-  error?: string;
-  releaseNotes?: string;
-}
+// Auto update disabled
 
 const Layout = ({ children }) => {
   const {
@@ -45,33 +42,19 @@ const Layout = ({ children }) => {
   } = useTranslation('common');
   const router = useRouter();
   const { asPath } = router;
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [newVersion, setNewVersion] = useState('');
-  const [releaseNotes, setReleaseNotes] = useState('');
-  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const [cudaCapable, setCudaCapable] = useState(false);
   const [cudaEnabled, setCudaEnabled] = useState(false);
+  const [appMode, setAppMode] = useState<'dev' | 'release' | null>(null);
+  const [showAboutDialog, setShowAboutDialog] = useState(false);
 
   useEffect(() => {
     // 监听消息通知
     const cleanupMessage = window?.ipc?.on('message', (res: string) => {
       toast(t('notification'), {
-        description: t(res),
+        description: translateAppMessage(t, res),
       });
       console.log(res);
     });
-
-    // 监听更新状态
-    const cleanupUpdateStatus = window?.ipc?.on(
-      'update-status',
-      (status: UpdateStatus) => {
-        if (status.status === 'available') {
-          setUpdateAvailable(true);
-          setNewVersion(status.version || '');
-          setReleaseNotes(status.releaseNotes || '');
-        }
-      },
-    );
 
     // 检查 GPU 加速状态
     const checkAddonStatus = async () => {
@@ -96,6 +79,12 @@ const Layout = ({ children }) => {
 
     checkAddonStatus();
 
+    window?.ipc?.invoke('getSystemInfo').then((info) => {
+      if (info?.appMode) {
+        setAppMode(info.appMode);
+      }
+    });
+
     // 监听 GPU 设置变更事件（由设置页面触发）
     const handleGpuSettingsChanged = () => {
       checkAddonStatus();
@@ -105,17 +94,12 @@ const Layout = ({ children }) => {
     // 清理函数
     return () => {
       cleanupMessage?.();
-      cleanupUpdateStatus?.();
       window.removeEventListener(
         'gpu-settings-changed',
         handleGpuSettingsChanged,
       );
     };
   }, [t]);
-
-  const handleUpdateClick = () => {
-    setShowUpdateDialog(true);
-  };
 
   return (
     <div className="grid h-screen w-full pl-[56px]">
@@ -226,6 +210,25 @@ const Layout = ({ children }) => {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
+                <Link href={`/${locale}/ffmpegHelper`}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`rounded-lg ${
+                      asPath.includes('ffmpegHelper') ? 'bg-muted' : ''
+                    }`}
+                    aria-label="FFmpeg Helper"
+                  >
+                    <Wrench className="size-5" />
+                  </Button>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={5}>
+                {t('ffmpegHelper')}
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <Link href={`/${locale}/settings`}>
                   <Button
                     variant="ghost"
@@ -250,6 +253,24 @@ const Layout = ({ children }) => {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild className="w-10">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-lg"
+                  aria-label={t('about.menuLabel')}
+                  onClick={() => setShowAboutDialog(true)}
+                >
+                  <CircleHelp className="size-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={5}>
+                {t('about.menuLabel')}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild className="w-10">
                 <Github
                   onClick={() => openUrl('https://github.com/buxuku/SmartSub')}
                   className="size-5 inline-block cursor-pointer"
@@ -264,26 +285,26 @@ const Layout = ({ children }) => {
       </aside>
       <div className="flex flex-col h-screen">
         <header className="flex-shrink-0 z-10 flex h-[57px] items-center gap-1 border-b bg-background px-4">
-          <h4 className="text-base font-semibold">
+          <h4
+            className="text-base font-semibold flex items-center gap-2 cursor-pointer select-none hover:opacity-80 transition-opacity"
+            onClick={() => setShowAboutDialog(true)}
+            title={t('about.menuLabel')}
+          >
             {t('headerTitle')}{' '}
+            {appMode === 'dev' && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex items-center rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                      {t('appModeDev')}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>{t('appModeDevTip')}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <span className="text-xs text-gray-500 ml-2">
               v{packageInfo.version}
-              {updateAvailable && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Rocket
-                        className="ml-2 inline-block cursor-pointer text-red-500"
-                        size={18}
-                        onClick={handleUpdateClick}
-                      />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {t('newVersionAvailable')}: {newVersion}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
             </span>
           </h4>
           {/* GPU 加速状态指示器 */}
@@ -326,12 +347,10 @@ const Layout = ({ children }) => {
         <Toaster />
       </div>
 
-      {/* Update Dialog */}
-      <UpdateDialog
-        open={showUpdateDialog}
-        onOpenChange={setShowUpdateDialog}
-        version={newVersion}
-        releaseNotes={releaseNotes}
+      <AboutDialog
+        open={showAboutDialog}
+        onOpenChange={setShowAboutDialog}
+        appMode={appMode}
       />
     </div>
   );

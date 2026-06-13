@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useTranslation } from 'next-i18next';
 import type {
   SubtitleStyle,
   MergeProgress,
@@ -92,6 +93,8 @@ export function useSubtitleMerge(
     onComplete,
     onError,
   } = options;
+
+  const { t } = useTranslation('common');
 
   // 文件状态
   const [videoPath, setVideoPathState] = useState<string | null>(
@@ -188,7 +191,7 @@ export function useSubtitleMerge(
     try {
       const result = await window.ipc.invoke('selectFile', {
         type: 'video',
-        title: '选择视频文件',
+        title: t('selectVideoFileDialog'),
       });
       if (!result.canceled && result.filePath) {
         setVideoPathState(result.filePath);
@@ -197,14 +200,14 @@ export function useSubtitleMerge(
     } catch (error) {
       console.error('选择视频失败:', error);
     }
-  }, [loadVideoInfo]);
+  }, [loadVideoInfo, t]);
 
   // 选择字幕文件
   const selectSubtitle = useCallback(async () => {
     try {
       const result = await window.ipc.invoke('selectFile', {
         type: 'subtitle',
-        title: '选择字幕文件',
+        title: t('selectSubtitleFileDialog'),
       });
       if (!result.canceled && result.filePath) {
         setSubtitlePathState(result.filePath);
@@ -213,7 +216,7 @@ export function useSubtitleMerge(
     } catch (error) {
       console.error('选择字幕失败:', error);
     }
-  }, [loadSubtitleInfo]);
+  }, [loadSubtitleInfo, t]);
 
   // 设置视频路径
   const setVideoPath = useCallback(
@@ -335,10 +338,11 @@ export function useSubtitleMerge(
           status: 'error',
           errorMessage: result.error,
         });
-        onError?.(result.error || '合并失败');
+        onError?.(result.error || t('mergeFailedGeneric'));
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '合并失败';
+      const errorMessage =
+        error instanceof Error ? error.message : t('mergeFailedGeneric');
       setProgress({
         percent: 0,
         timeMark: '',
@@ -348,7 +352,7 @@ export function useSubtitleMerge(
       });
       onError?.(errorMessage);
     }
-  }, [videoPath, subtitlePath, outputPath, style, onComplete, onError]);
+  }, [videoPath, subtitlePath, outputPath, style, onComplete, onError, t]);
 
   // 打开输出文件夹
   const openOutputFolder = useCallback(async () => {

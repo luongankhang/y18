@@ -225,11 +225,11 @@ export default function ProofreadPage() {
         <TabsList className="grid w-full grid-cols-2 max-w-xs flex-shrink-0">
           <TabsTrigger value="new">
             <Plus className="w-4 h-4 mr-2" />
-            {t('newTask') || '新建任务'}
+            {t('newTask')}
           </TabsTrigger>
           <TabsTrigger value="history">
             <History className="w-4 h-4 mr-2" />
-            {t('historyTasks') || '历史任务'}
+            {t('historyTasks')}
           </TabsTrigger>
         </TabsList>
 

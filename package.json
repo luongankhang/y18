@@ -1,9 +1,9 @@
 {
   "private": true,
-  "name": "smartsub",
-  "description": "视频转字幕，字幕翻译软件",
+  "name": "c1",
+  "description": "c1 - Video subtitle generation and translation software",
   "version": "2.16.0",
-  "author": "buxuku <buxuku@gmail.com>",
+  "author": "luongankhang <com.email.luongankhangfe90@gmail.com>",
   "main": "app/background.js",
   "scripts": {
     "prepare": "husky",
@@ -48,6 +48,7 @@
     "electron-store": "^8.2.0",
     "electron-updater": "^6.6.2",
     "ffmpeg-static": "^5.2.0",
+    "ffprobe-static": "^3.1.0",
     "fluent-ffmpeg": "^2.1.2",
     "fs-extra": "^11.3.0",
     "i18next": "^23.15.2",

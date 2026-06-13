@@ -1,4 +1,4 @@
-# 🚀 妙幕 / SmartSub
+# y18
 
 <div align="center">
 
@@ -42,7 +42,9 @@
 
 **让每一帧画面都能美妙地表达**
 
-智能音视频字幕生成与多语言翻译批量化解决方案
+智能音视频字幕生成与多语言翻译批量化解决方案（**y18** 定制版，Fork 自 [SmartSub](https://github.com/buxuku/SmartSub)）
+
+> **Dev vs Release**：`yarn dev` 为开发模式（标题栏显示 DEV 徽章，数据目录独立）；打包安装为正式版。详见 [Y18.md](./Y18.md)。
 
 ![preview](./resources/preview.png)
 
@@ -163,17 +165,20 @@ brew uninstall --cask smartsub
 
 ## 🔦使用 (开发用户)
 
+> 完整说明见 [Y18.md](./Y18.md)（Colab 上游 vs y18 Dev/Release）
+
 1️⃣ 克隆本项目在本地
 
 ```shell
-git clone https://github.com/buxuku/SmartSub.git
+git clone <your-y18-repo-url>
 ```
 
 2️⃣ 在项目中执行 `yarn install` 或者 `npm install`
 
 ```shell
-cd SmartSub
+cd y18   # 或你的项目目录名
 yarn install
+cp .env.development.local.example .env.development.local   # 可选
 ```
 
 如果是 windows / linux 平台，或者 Mac intel 平台，请前往 https://github.com/buxuku/whisper.cpp/releases/tag/latest 下载对应的 node 文件，并重命名为 `addon.node` , 覆盖放在 `extraResources/addons/` 目录下。

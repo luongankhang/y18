@@ -348,7 +348,7 @@ export class AddonDownloader {
       const protocol = parsedUrl.protocol === 'https:' ? https : http;
 
       const headers: Record<string, string> = {
-        'User-Agent': 'SmartSub-Electron',
+        'User-Agent': 'y18-Electron',
       };
 
       // 如果是续传，添加 Range 头

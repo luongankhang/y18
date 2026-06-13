@@ -1,0 +1,100 @@
+{
+  "title": "Tham số tùy chỉnh",
+  "titleWithProvider": "Tham số tùy chỉnh - {{providerName}}",
+  "subtitle": "Cấu hình header và tham số body tùy chỉnh cho nhà cung cấp này",
+  "actions": {
+    "export": "Xuất",
+    "import": "Nhập",
+    "refresh": "Làm mới",
+    "addParameter": "Thêm tham số",
+    "duplicate": "Nhân bản",
+    "cancel": "Hủy",
+    "save": "Lưu"
+  },
+  "tabs": {
+    "headers": "Headers",
+    "bodyParameters": "Tham số Body"
+  },
+  "headers": {
+    "title": "HTTP Headers",
+    "description": "Header tùy chỉnh gửi kèm yêu cầu API (ví dụ: xác thực, phiên bản API)"
+  },
+  "bodyParameters": {
+    "title": "Tham số Request Body",
+    "description": "Tham số tùy chỉnh trong body yêu cầu API (ví dụ: cài đặt mô hình, điều khiển hành vi)"
+  },
+  "search": {
+    "placeholder": "Tìm tham số..."
+  },
+  "addDialog": {
+    "title": "Thêm tham số mới",
+    "description": "Tạo tham số tùy chỉnh mới cho nhà cung cấp này.",
+    "fields": {
+      "key": "Khóa tham số",
+      "category": "Danh mục",
+      "type": "Loại",
+      "initialValue": "Giá trị ban đầu"
+    },
+    "placeholders": {
+      "key": "ví dụ: temperature, max_tokens",
+      "initialValue": "Nhập giá trị ban đầu"
+    },
+    "tooltips": {
+      "initialValue": "Giá trị ban đầu cho tham số mới"
+    }
+  },
+  "types": {
+    "string": "Chuỗi",
+    "integer": "Số nguyên",
+    "float": "Số thực",
+    "boolean": "Boolean",
+    "array": "Mảng"
+  },
+  "categories": {
+    "headers": "Headers",
+    "body": "Body"
+  },
+  "status": {
+    "saving": "Đang lưu...",
+    "saved": "Đã lưu",
+    "error": "Lỗi",
+    "upToDate": "Đã cập nhật",
+    "unsavedChanges": "Thay đổi chưa lưu",
+    "savedAutomatically": "Đã tự động lưu",
+    "saveFailed": "Lưu thất bại"
+  },
+  "summary": {
+    "title": "Tóm tắt cấu hình",
+    "totalParameters": "Tổng tham số:",
+    "headers": "Headers:",
+    "bodyParameters": "Tham số Body:",
+    "validationErrors": "Lỗi xác thực:",
+    "saveStatus": "Trạng thái lưu:",
+    "lastSaved": "Lưu lần cuối:"
+  },
+  "validation": {
+    "valid": "Hợp lệ",
+    "invalidJson": "JSON không hợp lệ: {message}",
+    "pleaseConfigure": "Vui lòng cung cấp cú pháp JSON hợp lệ"
+  },
+  "placeholders": {
+    "enterValue": "Nhập {key}",
+    "jsonArray": "[]",
+    "itemNumber": "Mục {number}"
+  },
+  "arrayEditor": {
+    "addItem": "Thêm mục",
+    "jsonArrayEditor": "Trình sửa mảng JSON"
+  },
+  "emptyStates": {
+    "noHeadersSearch": "Không có header khớp tìm kiếm.",
+    "noHeadersConfigured": "Chưa cấu hình header tùy chỉnh.",
+    "noBodyParamsSearch": "Không có tham số body khớp tìm kiếm.",
+    "noBodyParamsConfigured": "Chưa cấu hình tham số body tùy chỉnh."
+  },
+  "unsavedChangesDialog": {
+    "title": "Thay đổi chưa lưu",
+    "description": "Bạn có thay đổi chưa lưu sẽ mất nếu làm mới. Thay đổi đang được tự động lưu, nhưng làm mới ngay sẽ hủy các sửa đổi gần đây.",
+    "refreshAnyway": "Vẫn làm mới"
+  }
+}
