@@ -5,6 +5,7 @@ import fs from 'fs';
 import { spawn } from 'child_process';
 import { logMessage } from './storeManager';
 import { timemarkToSeconds } from './fileUtils';
+import { buildOutputPath, prepareUniqueOutputFile } from './outputPathUtils';
 
 const ffmpegPath = ffmpegStatic.replace('app.asar', 'app.asar.unpacked');
 ffmpeg.setFfmpegPath(ffmpegPath);
@@ -37,6 +38,14 @@ export interface ConvertWhisperOptions {
   onProgress?: (progress: FfmpegHelperProgress) => void;
 }
 
+export interface MergeVideosOptions {
+  inputFiles: string[];
+  outputFile: string;
+  onProgress?: (progress: FfmpegHelperProgress) => void;
+}
+
+export type FfmpegHelperVideoFormat = 'mp4' | 'mkv' | 'mov';
+
 interface MediaProbeResult {
   hasVideo: boolean;
   hasAudio: boolean;
@@ -48,10 +57,8 @@ function assertInputFile(inputFile: string): void {
   }
 }
 
-function ensureOutputDirectory(outputFile: string): string {
-  const normalized = path.normalize(outputFile);
-  fs.mkdirSync(path.dirname(normalized), { recursive: true });
-  return normalized;
+function prepareOutputFile(outputFile: string): string {
+  return prepareUniqueOutputFile(outputFile);
 }
 
 /** Probe streams using ffmpeg -i (ffmpeg-static does not ship ffprobe). */
@@ -193,7 +200,7 @@ export async function changeMediaSpeed(
     throw new Error('INVALID_SPEED');
   }
 
-  const outputFile = ensureOutputDirectory(options.outputFile);
+  const outputFile = prepareOutputFile(options.outputFile);
   const probe = await probeMedia(inputFile);
 
   if (!probe.hasVideo && !probe.hasAudio) {
@@ -229,7 +236,7 @@ export async function extractMediaAudio(
   const { inputFile, format, onProgress } = options;
   assertInputFile(inputFile);
 
-  const outputFile = ensureOutputDirectory(options.outputFile);
+  const outputFile = prepareOutputFile(options.outputFile);
   const probe = await probeMedia(inputFile);
 
   if (!probe.hasAudio) {
@@ -266,7 +273,7 @@ export async function convertToWhisperFormat(
     throw new Error('INVALID_SAMPLE_RATE');
   }
 
-  const outputFile = ensureOutputDirectory(options.outputFile);
+  const outputFile = prepareOutputFile(options.outputFile);
   const probe = await probeMedia(inputFile);
 
   if (!probe.hasAudio) {
@@ -290,20 +297,206 @@ export async function convertToWhisperFormat(
   return { outputFile };
 }
 
-/** Build default output file path for helper tab actions. */
+function getOutputFormatFromPath(outputFile: string): string {
+  const ext = path.extname(outputFile).toLowerCase();
+  if (ext === '.mkv') return 'matroska';
+  if (ext === '.mov') return 'mov';
+  return 'mp4';
+}
+
+/** Build filter_complex graph for sequential video+audio concat. */
+function buildSequentialConcatFilter(
+  inputCount: number,
+  probes: MediaProbeResult[],
+  durations: number[],
+): string {
+  const targetW = 1920;
+  const targetH = 1080;
+  const targetFps = 30;
+  const parts: string[] = [];
+  const concatInputs: string[] = [];
+
+  for (let i = 0; i < inputCount; i++) {
+    const vLabel = `v${i}`;
+    const aLabel = `a${i}`;
+
+    parts.push(
+      `[${i}:v]scale=${targetW}:${targetH}:force_original_aspect_ratio=decrease,pad=${targetW}:${targetH}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${targetFps},format=yuv420p[${vLabel}]`,
+    );
+
+    if (probes[i].hasAudio) {
+      parts.push(
+        `[${i}:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[${aLabel}]`,
+      );
+    } else {
+      const duration = Math.max(durations[i] || 1, 0.1);
+      parts.push(
+        `anullsrc=channel_layout=stereo:sample_rate=48000,atrim=duration=${duration},asetpts=PTS-STARTPTS[${aLabel}]`,
+      );
+    }
+
+    concatInputs.push(`[${vLabel}][${aLabel}]`);
+  }
+
+  parts.push(
+    `${concatInputs.join('')}concat=n=${inputCount}:v=1:a=1[outv][outa]`,
+  );
+
+  return parts.join(';');
+}
+
+function getMediaDurationSec(inputFile: string): Promise<number> {
+  return new Promise((resolve) => {
+    const proc = spawn(ffmpegPath, ['-hide_banner', '-i', inputFile], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+
+    let stderr = '';
+
+    proc.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+
+    proc.on('close', () => {
+      const match = stderr.match(/Duration:\s(\d{2}):(\d{2}):(\d{2}\.\d{2})/);
+      if (!match) {
+        resolve(0);
+        return;
+      }
+
+      resolve(
+        parseInt(match[1], 10) * 3600 +
+          parseInt(match[2], 10) * 60 +
+          parseFloat(match[3]),
+      );
+    });
+  });
+}
+
+/**
+ * Merge multiple videos sequentially (v1 → v2 → v3 …) using filter_complex concat.
+ */
+export async function mergeVideosInOrder(
+  options: MergeVideosOptions,
+): Promise<{ outputFile: string }> {
+  const { inputFiles, onProgress } = options;
+
+  if (!inputFiles?.length || inputFiles.length < 2) {
+    throw new Error('MERGE_REQUIRES_MIN_TWO_FILES');
+  }
+
+  const probes: MediaProbeResult[] = [];
+  for (const file of inputFiles) {
+    assertInputFile(file);
+    const probe = await probeMedia(file);
+    if (!probe.hasVideo) {
+      throw new Error('MERGE_REQUIRES_VIDEO');
+    }
+    probes.push(probe);
+  }
+
+  const outputFile = prepareOutputFile(options.outputFile);
+  const durations = await Promise.all(inputFiles.map(getMediaDurationSec));
+  const totalDurationSec = durations.reduce((sum, value) => sum + value, 0);
+  const filterComplex = buildSequentialConcatFilter(
+    inputFiles.length,
+    probes,
+    durations,
+  );
+  const outputFormat = getOutputFormatFromPath(outputFile);
+
+  logMessage(
+    `[ffmpeg helper] merge-videos order: ${inputFiles.map((f, i) => `${i + 1}:${path.basename(f)}`).join(' → ')}`,
+    'info',
+  );
+
+  await new Promise<void>((resolve, reject) => {
+    let command = ffmpeg();
+    for (const file of inputFiles) {
+      command = command.input(file);
+    }
+
+    command
+      .outputOptions([
+        '-filter_complex',
+        filterComplex,
+        '-map',
+        '[outv]',
+        '-map',
+        '[outa]',
+        '-c:v',
+        'libx264',
+        '-preset',
+        'fast',
+        '-crf',
+        '23',
+        '-pix_fmt',
+        'yuv420p',
+        '-c:a',
+        'aac',
+        '-b:a',
+        '192k',
+        '-ar',
+        '48000',
+        '-ac',
+        '2',
+        '-movflags',
+        '+faststart',
+        '-y',
+      ])
+      .format(outputFormat)
+      .on('start', (cmdLine) => {
+        logMessage(`[ffmpeg helper] merge-videos start: ${cmdLine}`, 'info');
+        onProgress?.({ percent: 0 });
+      })
+      .on('progress', (progress) => {
+        let percent = progress.percent;
+
+        if (
+          (percent === undefined ||
+            percent === null ||
+            Number.isNaN(percent) ||
+            percent <= 0) &&
+          totalDurationSec > 0 &&
+          progress.timemark
+        ) {
+          percent =
+            (timemarkToSeconds(progress.timemark) / totalDurationSec) * 100;
+        }
+
+        const safePercent = Math.min(
+          100,
+          Math.max(0, Math.round(percent || 0)),
+        );
+        onProgress?.({ percent: safePercent, timemark: progress.timemark });
+      })
+      .on('end', () => {
+        logMessage('[ffmpeg helper] merge-videos done', 'info');
+        onProgress?.({ percent: 100 });
+        resolve();
+      })
+      .on('error', (err) => {
+        logMessage(`[ffmpeg helper] merge-videos error: ${err}`, 'error');
+        reject(err);
+      })
+      .save(outputFile);
+  });
+
+  return { outputFile };
+}
+
+/** Build default unique output file path for helper tab actions. */
 export function buildHelperOutputPath(
   outputFolder: string,
   inputFile: string,
   suffix: string,
   extension: string,
 ): string {
-  const inputFileName = path.basename(inputFile);
-  const lastDotIndex = inputFileName.lastIndexOf('.');
-  const baseName =
-    lastDotIndex !== -1
-      ? inputFileName.substring(0, lastDotIndex)
-      : inputFileName;
-  const ext = extension.startsWith('.') ? extension : `.${extension}`;
-
-  return path.join(outputFolder, `${baseName}${suffix}${ext}`);
+  return buildOutputPath({
+    outputFolder,
+    inputFile,
+    suffix,
+    extension,
+    ensureUnique: true,
+  });
 }

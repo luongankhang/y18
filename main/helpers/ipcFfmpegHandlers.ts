@@ -4,8 +4,10 @@ import {
   changeMediaSpeed,
   convertToWhisperFormat,
   extractMediaAudio,
+  mergeVideosInOrder,
   type FfmpegHelperAudioFormat,
 } from './ffmpegHelperCore';
+import { previewUniqueOutputPath } from './outputPathUtils';
 
 function sendHelperProgress(
   event: Electron.IpcMainInvokeEvent,
@@ -29,6 +31,10 @@ function mapHelperError(error: unknown): string {
       return 'INVALID_SPEED';
     case 'INVALID_SAMPLE_RATE':
       return 'INVALID_SAMPLE_RATE';
+    case 'MERGE_REQUIRES_MIN_TWO_FILES':
+      return 'MERGE_REQUIRES_MIN_TWO_FILES';
+    case 'MERGE_REQUIRES_VIDEO':
+      return 'MERGE_REQUIRES_VIDEO';
     default:
       return message || 'UNKNOWN_ERROR';
   }
@@ -68,6 +74,38 @@ export function setupFfmpegHandlers() {
     return dialog.showOpenDialog({
       properties: ['openDirectory'],
     });
+  });
+
+  ipcMain.handle('select-video-files', async () => {
+    return dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        {
+          name: 'Video Files',
+          extensions: ['mp4', 'avi', 'mkv', 'mov', 'webm', 'flv', 'wmv', 'ts'],
+        },
+        {
+          name: 'All Files',
+          extensions: ['*'],
+        },
+      ],
+    });
+  });
+
+  ipcMain.handle('ffmpeg-merge-videos', async (event, options) => {
+    try {
+      const { inputFiles, outputFile } = options;
+      const result = await mergeVideosInOrder({
+        inputFiles,
+        outputFile,
+        onProgress: ({ percent }) => {
+          sendHelperProgress(event, { task: 'merge-videos', percent });
+        },
+      });
+      return { success: true, outputFile: result.outputFile };
+    } catch (error) {
+      throw new Error(mapHelperError(error));
+    }
   });
 
   ipcMain.handle('ffmpeg-change-speed', async (event, options) => {
@@ -123,6 +161,27 @@ export function setupFfmpegHandlers() {
 
   ipcMain.handle('ffmpeg-build-output-path', async (_event, options) => {
     const { outputFolder, inputFile, suffix, extension } = options;
-    return buildHelperOutputPath(outputFolder, inputFile, suffix, extension);
+    const preview = previewUniqueOutputPath({
+      outputFolder,
+      inputFile,
+      suffix,
+      extension,
+    });
+    return (
+      preview?.fullPath ??
+      buildHelperOutputPath(outputFolder, inputFile, suffix, extension)
+    );
+  });
+
+  ipcMain.handle('ffmpeg-preview-output-path', async (_event, options) => {
+    const preview = previewUniqueOutputPath(options);
+    if (!preview) {
+      return null;
+    }
+    return {
+      fullPath: preview.fullPath,
+      fileName: preview.fileName,
+      duplicateIndex: preview.duplicateIndex,
+    };
   });
 }
