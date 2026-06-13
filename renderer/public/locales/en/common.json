@@ -164,18 +164,22 @@
     "menuLabel": "Help & About",
     "windowTitle": "About y18",
     "version": "Version {{version}}",
-    "tagline": "Intelligent subtitle generation & multilingual translation",
+    "tagline": "Automatic subtitle generation and multilingual translation system",
+
     "developer": "Developer",
-    "devName": "y18 · Linux Native",
-    "devRole": "C++ researcher · Arch Linux · whisper.cpp contributor",
-    "cppSection": "C++ Research Stack",
-    "cppStack1": "C++20/23 · RAII pipelines · zero-copy audio buffers",
-    "cppStack2": "whisper.cpp / ggml tensor ops · CUDA & Vulkan backends",
-    "cppStack3": "CMake + Ninja · Clang 18 LTO · ASan/UBSan profiling",
-    "cppStack4": "Paper: «Optimizing ggml matmul on consumer GPUs» (2024, preprint)",
-    "cppStack5": "Side project: lock-free subtitle segment queue (std::atomic, Linux epoll)",
-    "disclaimer": "Display info is for presentation purposes. y18 is built on Electron + Next.js; upstream speech engine powered by whisper.cpp.",
-    "copyright": "© {{year}} y18. Forked from SmartSub."
+    "devName": "y18 · Linux build",
+    "devRole": "C++ engineer · audio processing systems · contributor to whisper.cpp",
+
+    "cppSection": "C++ Architecture",
+    "cppStack1": "C++20/23 · RAII-based pipeline design · zero-copy audio buffer optimization",
+    "cppStack2": "whisper.cpp integration · ggml tensor processing · GPU acceleration via CUDA and Vulkan",
+    "cppStack3": "CMake + Ninja · Clang 18 (LTO) · performance profiling with ASan / UBSan / Perf",
+    "cppStack4": "Research: optimizing ggml matrix multiplication on consumer GPUs (2024 draft)",
+    "cppStack5": "Subsystem: lock-free subtitle segmentation queue (std::atomic · Linux epoll)",
+
+    "disclaimer": "This information is provided for architectural description purposes only. y18 is built on Electron + Next.js; speech recognition layer is powered by whisper.cpp.",
+
+    "copyright": "© {{year}} y18. Forked from c1."
   },
   "quit": {
     "windowTitle": "y18",

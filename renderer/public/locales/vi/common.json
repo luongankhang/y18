@@ -164,18 +164,22 @@
     "menuLabel": "Trợ giúp & Giới thiệu",
     "windowTitle": "Giới thiệu y18",
     "version": "Phiên bản {{version}}",
-    "tagline": "Tạo phụ đề thông minh & dịch đa ngôn ngữ",
+    "tagline": "Hệ thống tạo phụ đề tự động và dịch đa ngôn ngữ",
+
     "developer": "Nhà phát triển",
-    "devName": "y18 · Linux Native",
-    "devRole": "Nghiên cứu C++ · Arch Linux · contributor whisper.cpp",
-    "cppSection": "Stack nghiên cứu C++",
-    "cppStack1": "C++20/23 · pipeline RAII · buffer audio zero-copy",
-    "cppStack2": "whisper.cpp / ggml tensor ops · backend CUDA & Vulkan",
-    "cppStack3": "CMake + Ninja · Clang 18 LTO · profiling ASan/UBSan",
-    "cppStack4": "Bài báo: «Optimizing ggml matmul on consumer GPUs» (2024, preprint)",
-    "cppStack5": "Dự án phụ: hàng đợi phân đoạn phụ đề lock-free (std::atomic, Linux epoll)",
-    "disclaimer": "Thông tin hiển thị chỉ mang tính trình bày. y18 xây dựng trên Electron + Next.js; engine giọng nói từ whisper.cpp.",
-    "copyright": "© {{year}} y18. Fork từ SmartSub."
+    "devName": "y18 · bản build Linux",
+    "devRole": "Kỹ sư C++ · hệ thống xử lý âm thanh · đóng góp cho whisper.cpp",
+
+    "cppSection": "Kiến trúc C++",
+    "cppStack1": "C++20/23 · thiết kế pipeline theo RAII · tối ưu bộ nhớ với zero-copy audio buffer",
+    "cppStack2": "Tích hợp whisper.cpp · xử lý tensor ggml · tăng tốc GPU qua CUDA và Vulkan",
+    "cppStack3": "CMake + Ninja · Clang 18 (LTO) · phân tích hiệu năng bằng ASan / UBSan / Perf",
+    "cppStack4": "Nghiên cứu: tối ưu phép nhân ma trận ggml trên GPU phổ thông (bản thảo 2024)",
+    "cppStack5": "Module phụ: hàng đợi xử lý phân đoạn phụ đề không khóa (std::atomic · epoll Linux)",
+
+    "disclaimer": "Thông tin chỉ mang tính mô tả kiến trúc hệ thống. y18 được xây dựng trên Electron + Next.js; tầng nhận diện giọng nói sử dụng whisper.cpp.",
+
+    "copyright": "© {{year}} y18. Fork từ c1."
   },
   "quit": {
     "windowTitle": "y18",

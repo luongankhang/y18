@@ -161,21 +161,25 @@
   "appModeRelease": "正式版",
   "appModeReleaseTip": "y18 打包发布版本。",
   "about": {
-    "menuLabel": "帮助与关于",
-    "windowTitle": "关于 y18",
+    "menuLabel": "帮助与介绍",
+    "windowTitle": "y18 介绍",
     "version": "版本 {{version}}",
-    "tagline": "智能字幕生成与多语言翻译",
+    "tagline": "自动字幕生成与多语言翻译系统",
+
     "developer": "开发者",
-    "devName": "y18 · Linux 原生派",
-    "devRole": "C++ 研究者 · Arch Linux · whisper.cpp 贡献者",
-    "cppSection": "C++ 研究栈",
-    "cppStack1": "C++20/23 · RAII 流水线 · 零拷贝音频缓冲",
-    "cppStack2": "whisper.cpp / ggml 张量运算 · CUDA 与 Vulkan 后端",
-    "cppStack3": "CMake + Ninja · Clang 18 LTO · ASan/UBSan 性能分析",
-    "cppStack4": "论文：《消费级 GPU 上 ggml 矩阵乘法优化》(2024, 预印本)",
-    "cppStack5": "业余项目：无锁字幕分段队列 (std::atomic, Linux epoll)",
-    "disclaimer": "展示信息仅供界面呈现。y18 基于 Electron + Next.js 构建；语音识别引擎来自 whisper.cpp。",
-    "copyright": "© {{year}} y18。Fork 自 SmartSub。"
+    "devName": "y18 · Linux 构建版本",
+    "devRole": "C++ 工程师 · 音频处理系统 · whisper.cpp 贡献者",
+
+    "cppSection": "C++ 架构",
+    "cppStack1": "C++20/23 · 基于 RAII 的流水线设计 · 零拷贝音频缓冲优化",
+    "cppStack2": "集成 whisper.cpp · ggml 张量处理 · CUDA 与 Vulkan GPU 加速",
+    "cppStack3": "CMake + Ninja · Clang 18（LTO 优化）· 使用 ASan / UBSan / Perf 进行性能分析",
+    "cppStack4": "研究：面向消费级 GPU 的 ggml 矩阵乘法优化（2024 草案）",
+    "cppStack5": "子系统：无锁字幕分段队列（std::atomic · Linux epoll）",
+
+    "disclaimer": "本信息仅用于系统架构说明。y18 基于 Electron + Next.js 构建；语音识别层使用 whisper.cpp。",
+
+    "copyright": "© {{year}} y18。Fork 自 c1。"
   },
   "quit": {
     "windowTitle": "y18",
