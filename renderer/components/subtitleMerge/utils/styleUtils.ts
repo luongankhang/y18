@@ -108,15 +108,20 @@ export function getSubtitleContainerStyle(
   };
 }
 
+/** ASS 九宫格行：0=下(1-3), 1=中(4-6), 2=上(7-9) */
+function getAlignmentRow(alignment: SubtitleAlignment): number {
+  return Math.floor((alignment - 1) / 3);
+}
+
 /** 自定义 pos 模式下，锚点随 alignment 变化（与 ASS 锚点一致） */
 export function getCustomPositionTransform(
   alignment: SubtitleAlignment,
 ): string {
   const col = (alignment - 1) % 3;
-  const row = Math.floor((alignment - 1) / 3);
+  const row = getAlignmentRow(alignment);
   const tx = col === 0 ? '0%' : col === 1 ? '-50%' : '-100%';
-  // 上行锚点在文字顶部，中行居中，下行在底部
-  const ty = row === 0 ? '0%' : row === 1 ? '-50%' : '-100%';
+  // row 0 下(1-3) 锚点在底部，row 1 中，row 2 上(7-9) 锚点在顶部
+  const ty = row === 0 ? '-100%' : row === 1 ? '-50%' : '0%';
   return `translate(${tx}, ${ty})`;
 }
 
@@ -154,7 +159,7 @@ export function getOverlayPositionForAlignment(
   const w = Math.max(1, videoWidth);
   const h = Math.max(1, videoHeight);
   const col = (alignment - 1) % 3;
-  const row = Math.floor((alignment - 1) / 3);
+  const row = getAlignmentRow(alignment);
 
   let xPx: number;
   if (col === 0) xPx = marginL;
@@ -162,9 +167,9 @@ export function getOverlayPositionForAlignment(
   else xPx = w - marginR;
 
   let yPx: number;
-  if (row === 0) yPx = marginV;
+  if (row === 0) yPx = h - marginV;
   else if (row === 1) yPx = h / 2;
-  else yPx = h - marginV;
+  else yPx = marginV;
 
   return {
     posXPercent: Math.round((xPx / w) * 1000) / 10,
