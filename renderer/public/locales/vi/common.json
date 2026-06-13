@@ -194,6 +194,13 @@
   "selectSubtitleFileDialog": "Chọn tệp phụ đề",
   "selectOutputFolderDialog": "Chọn thư mục đầu ra",
   "mergeFailedGeneric": "Ghép thất bại",
+  "terminal": {
+    "panelTitle": "Terminal",
+    "defaultTitle": "Terminal",
+    "new": "Terminal mới",
+    "kill": "Kết thúc Terminal",
+    "closePanel": "Đóng bảng"
+  },
   "messages": {
     "UNKNOWN_ERROR": "Lỗi không xác định",
     "TRANSLATE_ONLY_REQUIRES_SUBTITLE": "Chế độ chỉ dịch không thể xử lý tệp video. Vui lòng cung cấp tệp phụ đề."

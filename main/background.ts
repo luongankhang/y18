@@ -24,6 +24,7 @@ import {
 } from './helpers/ipcAddonHandlers';
 import { setupAppMenu } from './helpers/menu';
 import { setupQuitGuard } from './helpers/quitGuard';
+import { setupTerminalHandlers } from './helpers/ipcTerminalHandlers';
 
 //控制台出现中文乱码，需要去node_modules\electron\cli.js中修改启动代码页
 
@@ -96,6 +97,7 @@ if (isProd) {
 
   setupAppMenu(mainWindow);
   setupQuitGuard(mainWindow);
+  setupTerminalHandlers(mainWindow);
   setupIpcHandlers(mainWindow);
   setupTaskProcessor(mainWindow);
   setupSystemInfoManager(mainWindow);

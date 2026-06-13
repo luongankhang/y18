@@ -194,6 +194,13 @@
   "selectSubtitleFileDialog": "Select subtitle file",
   "selectOutputFolderDialog": "Select output folder",
   "mergeFailedGeneric": "Merge failed",
+  "terminal": {
+    "panelTitle": "Terminal",
+    "defaultTitle": "Terminal",
+    "new": "New Terminal",
+    "kill": "Kill Terminal",
+    "closePanel": "Close Panel"
+  },
   "messages": {
     "UNKNOWN_ERROR": "Unknown error",
     "TRANSLATE_ONLY_REQUIRES_SUBTITLE": "Translate-only mode cannot process video files. Please provide subtitle files."

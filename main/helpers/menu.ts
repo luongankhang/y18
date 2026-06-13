@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Menu } from 'electron';
 import { store } from './store';
 import { requestQuit } from './quitGuard';
+import { sendTerminalMenuAction } from './ipcTerminalHandlers';
 
 type MenuLanguage = 'zh' | 'en' | 'vi';
 
@@ -32,6 +33,10 @@ const LABELS: Record<MenuLanguage, Record<string, string>> = {
     minimize: '最小化',
     close: '关闭窗口',
     help: '帮助',
+    terminal: '终端',
+    newTerminal: '新建终端',
+    toggleTerminal: '切换终端面板',
+    killTerminal: '终止终端',
   },
   en: {
     about: `About ${APP_DISPLAY_NAME}`,
@@ -58,6 +63,10 @@ const LABELS: Record<MenuLanguage, Record<string, string>> = {
     minimize: 'Minimize',
     close: 'Close Window',
     help: 'Help',
+    terminal: 'Terminal',
+    newTerminal: 'New Terminal',
+    toggleTerminal: 'Toggle Terminal Panel',
+    killTerminal: 'Kill Terminal',
   },
   vi: {
     about: `Giới thiệu ${APP_DISPLAY_NAME}`,
@@ -84,6 +93,10 @@ const LABELS: Record<MenuLanguage, Record<string, string>> = {
     minimize: 'Thu nhỏ',
     close: 'Đóng cửa sổ',
     help: 'Trợ giúp',
+    terminal: 'Terminal',
+    newTerminal: 'Terminal mới',
+    toggleTerminal: 'Bật/tắt bảng Terminal',
+    killTerminal: 'Kết thúc Terminal',
   },
 };
 
@@ -116,11 +129,35 @@ function showAboutDialog() {
   sendToRenderer('show-about-dialog');
 }
 
+function buildTerminalMenuItems(
+  language: MenuLanguage,
+): Electron.MenuItemConstructorOptions[] {
+  const labels = LABELS[language];
+  return [
+    {
+      label: labels.newTerminal,
+      accelerator: 'CmdOrCtrl+Shift+`',
+      click: () => sendTerminalMenuAction('new'),
+    },
+    {
+      label: labels.toggleTerminal,
+      accelerator: 'CmdOrCtrl+`',
+      click: () => sendTerminalMenuAction('toggle'),
+    },
+    { type: 'separator' },
+    {
+      label: labels.killTerminal,
+      click: () => sendTerminalMenuAction('kill'),
+    },
+  ];
+}
+
 export function buildAppMenu(language: MenuLanguage = resolveLanguage()) {
   const l = LABELS[language];
   const appName = APP_DISPLAY_NAME;
   const fmt = (s: string) => s.replace('%s', appName);
   const isMac = process.platform === 'darwin';
+  const terminalItems = buildTerminalMenuItems(language);
 
   const template: Electron.MenuItemConstructorOptions[] = [];
 
@@ -137,10 +174,18 @@ export function buildAppMenu(language: MenuLanguage = resolveLanguage()) {
         { label: fmt(l.quit), click: () => requestQuit() },
       ],
     });
+    template.push({
+      label: l.file,
+      submenu: terminalItems,
+    });
   } else {
     template.push({
       label: l.file,
-      submenu: [{ label: fmt(l.quit), click: () => requestQuit() }],
+      submenu: [
+        ...terminalItems,
+        { type: 'separator' },
+        { label: fmt(l.quit), click: () => requestQuit() },
+      ],
     });
   }
 
@@ -169,6 +214,11 @@ export function buildAppMenu(language: MenuLanguage = resolveLanguage()) {
       { type: 'separator' },
       { role: 'togglefullscreen', label: l.togglefullscreen },
     ],
+  });
+
+  template.push({
+    label: l.terminal,
+    submenu: terminalItems,
   });
 
   if (isMac) {

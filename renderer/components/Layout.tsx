@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
@@ -34,6 +34,9 @@ import { useTranslation } from 'next-i18next';
 // import { UpdateDialog } from './UpdateDialog';
 import { AboutDialog } from './AboutDialog';
 import { QuitConfirmDialog } from './QuitConfirmDialog';
+import TerminalPanel, {
+  type TerminalPanelHandle,
+} from './terminal/TerminalPanel';
 import packageInfo from '../../package.json';
 
 const FACEBOOK_URL = 'https://www.facebook.com/luong.an.khang.9x';
@@ -54,6 +57,9 @@ const Layout = ({ children }) => {
   const [appMode, setAppMode] = useState<'dev' | 'release' | null>(null);
   const [showAboutDialog, setShowAboutDialog] = useState(false);
   const [showQuitDialog, setShowQuitDialog] = useState(false);
+  const [terminalVisible, setTerminalVisible] = useState(false);
+  const [terminalHeight, setTerminalHeight] = useState(280);
+  const terminalPanelRef = useRef<TerminalPanelHandle>(null);
 
   useEffect(() => {
     // 监听消息通知
@@ -107,17 +113,44 @@ const Layout = ({ children }) => {
       setShowQuitDialog(true);
     });
 
+    const cleanupTerminalMenu = window?.ipc?.on(
+      'terminal:menu-action',
+      (payload: { action: 'new' | 'toggle' | 'kill' }) => {
+        if (payload.action === 'toggle') {
+          setTerminalVisible((prev) => !prev);
+          return;
+        }
+        if (payload.action === 'new') {
+          setTerminalVisible((prev) => {
+            if (prev) {
+              queueMicrotask(() => terminalPanelRef.current?.createTab());
+            }
+            return true;
+          });
+          return;
+        }
+        if (payload.action === 'kill') {
+          terminalPanelRef.current?.killActive();
+        }
+      },
+    );
+
     // 清理函数
     return () => {
       cleanupMessage?.();
       cleanupAboutDialog?.();
       cleanupQuitDialog?.();
+      cleanupTerminalMenu?.();
       window.removeEventListener(
         'gpu-settings-changed',
         handleGpuSettingsChanged,
       );
     };
   }, [t]);
+
+  const handleCloseTerminal = useCallback(() => {
+    setTerminalVisible(false);
+  }, []);
 
   return (
     <div className="grid h-screen w-full pl-[56px]">
@@ -407,6 +440,13 @@ const Layout = ({ children }) => {
           )}
         </header>
         <main className="flex-1 min-h-0 overflow-auto">{children}</main>
+        <TerminalPanel
+          ref={terminalPanelRef}
+          visible={terminalVisible}
+          height={terminalHeight}
+          onHeightChange={setTerminalHeight}
+          onClose={handleCloseTerminal}
+        />
         <Toaster />
       </div>
 

@@ -194,6 +194,13 @@
   "selectSubtitleFileDialog": "选择字幕文件",
   "selectOutputFolderDialog": "选择输出文件夹",
   "mergeFailedGeneric": "合并失败",
+  "terminal": {
+    "panelTitle": "终端",
+    "defaultTitle": "终端",
+    "new": "新建终端",
+    "kill": "终止终端",
+    "closePanel": "关闭面板"
+  },
   "messages": {
     "UNKNOWN_ERROR": "未知错误",
     "TRANSLATE_ONLY_REQUIRES_SUBTITLE": "只翻译模式下不能处理视频文件，请提供字幕文件"
