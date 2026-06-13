@@ -22,6 +22,8 @@ import {
   ZapOff,
   CircleHelp,
   Wrench,
+  Facebook,
+  MessageCircle,
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { openUrl } from 'lib/utils';
@@ -33,6 +35,9 @@ import { useTranslation } from 'next-i18next';
 import { AboutDialog } from './AboutDialog';
 import { QuitConfirmDialog } from './QuitConfirmDialog';
 import packageInfo from '../../package.json';
+
+const FACEBOOK_URL = 'https://www.facebook.com/luong.an.khang.9x';
+const ZALO_URL = 'https://zalo.me/0396294429';
 import { translateAppMessage } from '../lib/i18n';
 
 // Auto update disabled
@@ -304,12 +309,38 @@ const Layout = ({ children }) => {
             <Tooltip>
               <TooltipTrigger asChild className="w-10">
                 <Github
-                  onClick={() => openUrl('https://github.com/buxuku/SmartSub')}
+                  onClick={() => openUrl(FACEBOOK_URL)}
                   className="size-5 inline-block cursor-pointer"
                 />
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={5}>
                 Github
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild className="w-10">
+                <Facebook
+                  onClick={() => openUrl(FACEBOOK_URL)}
+                  className="size-5 inline-block cursor-pointer"
+                />
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={5}>
+                Facebook
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild className="w-10">
+                <MessageCircle
+                  onClick={() => openUrl(ZALO_URL)}
+                  className="size-5 inline-block cursor-pointer"
+                />
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={5}>
+                Zalo
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
