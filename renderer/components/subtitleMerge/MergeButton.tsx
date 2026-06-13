@@ -16,13 +16,22 @@ import {
   XCircle,
   Folder,
 } from 'lucide-react';
-import type { MergeProgress, MergeStatus } from '../../../types/subtitleMerge';
+import type {
+  MergeProgress,
+  MergeStatus,
+  VideoExportSettings,
+  VideoInfo,
+} from '../../../types/subtitleMerge';
+import ExportSettings from './ExportSettings';
 
 interface MergeButtonProps {
   outputPath: string | null;
   progress: MergeProgress;
   status: MergeStatus;
   canMerge: boolean;
+  videoInfo: VideoInfo | null;
+  exportSettings: VideoExportSettings;
+  onUpdateExportSettings: (updates: Partial<VideoExportSettings>) => void;
   onSelectOutputPath: () => void;
   onStartMerge: () => void;
   onOpenOutputFolder: () => void;
@@ -33,6 +42,9 @@ export default function MergeButton({
   progress,
   status,
   canMerge,
+  videoInfo,
+  exportSettings,
+  onUpdateExportSettings,
   onSelectOutputPath,
   onStartMerge,
   onOpenOutputFolder,
@@ -57,6 +69,13 @@ export default function MergeButton({
           </Button>
         </div>
       </div>
+
+      <ExportSettings
+        exportSettings={exportSettings}
+        videoInfo={videoInfo}
+        onUpdateExportSettings={onUpdateExportSettings}
+        disabled={status === 'processing'}
+      />
 
       {/* 进度条 */}
       {status === 'processing' && (

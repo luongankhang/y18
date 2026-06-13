@@ -1,67 +1,161 @@
 /**
  * 视频预览组件
- * 16:9 比例显示视频和字幕效果
  */
 
-import React, { useRef, useState } from 'react';
+import React, {
+  memo,
+  useRef,
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+} from 'react';
 import { useTranslation } from 'next-i18next';
 import ReactPlayer from 'react-player';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Play, Pause } from 'lucide-react';
-import type { SubtitleStyle, VideoInfo } from '../../../types/subtitleMerge';
+import type {
+  SubtitleStyle,
+  SubtitleBlurMask,
+  VideoInfo,
+  CustomTextOverlay,
+} from '../../../types/subtitleMerge';
 import SubtitlePreviewOverlay from './SubtitlePreviewOverlay';
-import { formatTime } from '../../hooks/useVideoPlayer';
+import CustomTextOverlayPreview from './CustomTextOverlayPreview';
+import { getPreviewScaleFactor } from './utils/styleUtils';
+import { formatTimeShort } from './utils/timeUtils';
 
 interface VideoPreviewProps {
   videoPath: string | null;
   videoInfo: VideoInfo | null;
   style: SubtitleStyle;
-  sampleText?: string;
+  blurMask?: SubtitleBlurMask;
+  previewText?: string;
+  customTextOverlay?: CustomTextOverlay;
+  playerRef?: React.RefObject<ReactPlayer>;
+  currentTime?: number;
+  duration?: number;
+  isPlaying?: boolean;
+  onProgress?: (state: { playedSeconds: number }) => void;
+  onDuration?: (duration: number) => void;
+  onSeek?: (time: number) => void;
+  onTogglePlay?: () => void;
+  onOverlayPositionChange?: (posXPercent: number, posYPercent: number) => void;
 }
 
-export default function VideoPreview({
+function VideoPreview({
   videoPath,
   videoInfo,
   style,
-  sampleText,
+  blurMask,
+  previewText = '',
+  customTextOverlay,
+  playerRef: externalPlayerRef,
+  currentTime: externalCurrentTime,
+  duration: externalDuration,
+  isPlaying: externalIsPlaying,
+  onProgress,
+  onDuration,
+  onSeek,
+  onTogglePlay,
+  onOverlayPositionChange,
 }: VideoPreviewProps) {
   const { t } = useTranslation(['subtitleMerge', 'common']);
-  const previewText = sampleText ?? t('common:previewSampleText');
-  const playerRef = useRef<ReactPlayer>(null);
+  const internalPlayerRef = useRef<ReactPlayer>(null);
+  const playerRef = externalPlayerRef || internalPlayerRef;
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [internalIsPlaying, setInternalIsPlaying] = useState(false);
+  const [internalCurrentTime, setInternalCurrentTime] = useState(0);
+  const [internalDuration, setInternalDuration] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(0);
 
-  // 处理进度更新
-  const handleProgress = ({ playedSeconds }: { playedSeconds: number }) => {
-    setCurrentTime(playedSeconds);
-  };
+  const isPlaying = externalIsPlaying ?? internalIsPlaying;
+  const currentTime = externalCurrentTime ?? internalCurrentTime;
+  const duration = externalDuration ?? internalDuration;
 
-  // 处理时长获取
-  const handleDuration = (dur: number) => {
-    setDuration(dur);
-  };
+  const displayText =
+    previewText || (!videoPath ? t('common:previewSampleText') : '');
 
-  // 跳转到指定时间
-  const handleSeek = (value: number[]) => {
-    const time = value[0];
-    setCurrentTime(time);
-    playerRef.current?.seekTo(time, 'seconds');
-  };
+  const scaleFactor = useMemo(
+    () => getPreviewScaleFactor(videoInfo?.height, containerHeight),
+    [videoInfo?.height, containerHeight],
+  );
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        const nextHeight = entry.contentRect.height;
+        setContainerHeight((prev) =>
+          Math.abs(prev - nextHeight) > 1 ? nextHeight : prev,
+        );
+      }
+    });
+
+    observer.observe(element);
+    setContainerHeight(element.clientHeight);
+
+    return () => observer.disconnect();
+  }, [videoPath]);
+
+  const handleProgress = useCallback(
+    ({ playedSeconds }: { playedSeconds: number }) => {
+      if (onProgress) {
+        onProgress({ playedSeconds });
+      } else {
+        setInternalCurrentTime(playedSeconds);
+      }
+    },
+    [onProgress],
+  );
+
+  const handleDuration = useCallback(
+    (value: number) => {
+      if (onDuration) {
+        onDuration(value);
+      } else {
+        setInternalDuration(value);
+      }
+    },
+    [onDuration],
+  );
+
+  const handleSeek = useCallback(
+    (value: number[]) => {
+      const time = value[0];
+      if (onSeek) {
+        onSeek(time);
+      } else {
+        setInternalCurrentTime(time);
+        playerRef.current?.seekTo(time, 'seconds');
+      }
+    },
+    [onSeek, playerRef],
+  );
+
+  const togglePlay = useCallback(() => {
+    if (onTogglePlay) {
+      onTogglePlay();
+    } else {
+      setInternalIsPlaying((prev) => !prev);
+    }
+  }, [onTogglePlay]);
 
   return (
     <div className="space-y-2">
-      {/* 预览区域 - 16:9 */}
       <div
+        ref={containerRef}
         className="relative w-full bg-black rounded-lg overflow-hidden"
-        style={{ paddingBottom: '56.25%' }} // 16:9 比例
+        style={{ paddingBottom: '56.25%' }}
       >
         <div className="absolute inset-0 flex items-center justify-center">
           {videoPath ? (
             <>
-              {/* 视频播放器 */}
               <ReactPlayer
                 ref={playerRef}
                 url={`media://${encodeURIComponent(videoPath)}`}
@@ -71,12 +165,28 @@ export default function VideoPreview({
                 controls={false}
                 onProgress={handleProgress}
                 onDuration={handleDuration}
-                progressInterval={100}
+                progressInterval={250}
                 style={{ position: 'absolute', top: 0, left: 0 }}
               />
 
-              {/* CSS 模拟字幕叠加层 */}
-              <SubtitlePreviewOverlay style={style} text={previewText} />
+              <SubtitlePreviewOverlay
+                style={style}
+                text={displayText}
+                blurMask={blurMask}
+                scaleFactor={scaleFactor}
+                videoWidth={videoInfo?.width}
+                videoHeight={videoInfo?.height}
+              />
+
+              {customTextOverlay && (
+                <CustomTextOverlayPreview
+                  overlay={customTextOverlay}
+                  scaleFactor={scaleFactor}
+                  videoWidth={videoInfo?.width}
+                  videoHeight={videoInfo?.height}
+                  onPositionChange={onOverlayPositionChange}
+                />
+              )}
             </>
           ) : (
             <div className="text-muted-foreground text-center">
@@ -86,14 +196,13 @@ export default function VideoPreview({
         </div>
       </div>
 
-      {/* 播放控制 */}
       {videoPath && (
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="icon"
             className="h-8 w-8"
-            onClick={() => setIsPlaying(!isPlaying)}
+            onClick={togglePlay}
           >
             {isPlaying ? (
               <Pause className="w-4 h-4" />
@@ -102,7 +211,7 @@ export default function VideoPreview({
             )}
           </Button>
           <span className="text-xs text-muted-foreground w-10">
-            {formatTime(currentTime)}
+            {formatTimeShort(currentTime)}
           </span>
           <Slider
             value={[currentTime]}
@@ -113,10 +222,12 @@ export default function VideoPreview({
             className="flex-1"
           />
           <span className="text-xs text-muted-foreground w-10 text-right">
-            {formatTime(duration)}
+            {formatTimeShort(duration)}
           </span>
         </div>
       )}
     </div>
   );
 }
+
+export default memo(VideoPreview);

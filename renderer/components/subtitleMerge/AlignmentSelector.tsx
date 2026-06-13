@@ -31,7 +31,7 @@ export default function AlignmentSelector({
   const { t } = useTranslation('subtitleMerge');
 
   return (
-    <div className="inline-grid grid-cols-3 gap-1.5 p-2 bg-muted rounded-lg mt-1">
+    <div className="inline-grid grid-cols-3 gap-2 p-3 bg-muted rounded-lg">
       {ALIGNMENT_GRID.map((row, rowIndex) => (
         <React.Fragment key={rowIndex}>
           {row.map((alignment) => (
@@ -42,7 +42,7 @@ export default function AlignmentSelector({
               disabled={disabled}
               title={t(`align${alignment}`)}
               className={`
-                w-8 h-8 rounded flex items-center justify-center text-xs font-medium
+                w-9 h-9 rounded-md flex items-center justify-center text-xs font-medium
                 transition-colors
                 ${
                   value === alignment

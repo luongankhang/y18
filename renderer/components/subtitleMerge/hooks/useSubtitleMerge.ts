@@ -7,13 +7,22 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'next-i18next';
 import type {
   SubtitleStyle,
+  SubtitleBlurMask,
+  VideoExportSettings,
   MergeProgress,
   MergeStatus,
   VideoInfo,
   SubtitleInfo,
   MergeConfig,
+  CustomTextOverlay,
 } from '../../../../types/subtitleMerge';
-import { DEFAULT_STYLE, STYLE_PRESETS } from '../constants';
+import {
+  DEFAULT_STYLE,
+  DEFAULT_BLUR_MASK,
+  DEFAULT_EXPORT_SETTINGS,
+  DEFAULT_CUSTOM_TEXT_OVERLAY,
+  STYLE_PRESETS,
+} from '../constants';
 
 /**
  * Hook 返回的状态和方法
@@ -27,10 +36,13 @@ export interface UseSubtitleMergeReturn {
 
   // 样式状态
   style: SubtitleStyle;
+  blurMask: SubtitleBlurMask;
+  customTextOverlay: CustomTextOverlay;
   activePresetId: string | null;
 
   // 输出状态
   outputPath: string | null;
+  exportSettings: VideoExportSettings;
 
   // 进度状态
   progress: MergeProgress;
@@ -46,12 +58,15 @@ export interface UseSubtitleMergeReturn {
   // 样式操作方法
   setStyle: (style: SubtitleStyle) => void;
   updateStyle: (updates: Partial<SubtitleStyle>) => void;
+  updateBlurMask: (updates: Partial<SubtitleBlurMask>) => void;
+  updateCustomTextOverlay: (updates: Partial<CustomTextOverlay>) => void;
   applyPreset: (presetId: string) => void;
   resetStyle: () => void;
 
   // 输出操作方法
   selectOutputPath: () => Promise<void>;
   setOutputPath: (path: string) => void;
+  updateExportSettings: (updates: Partial<VideoExportSettings>) => void;
 
   // 合并操作方法
   startMerge: () => Promise<void>;
@@ -110,12 +125,18 @@ export function useSubtitleMerge(
   const [style, setStyleState] = useState<SubtitleStyle>(
     initialStyle || DEFAULT_STYLE,
   );
+  const [blurMask, setBlurMaskState] =
+    useState<SubtitleBlurMask>(DEFAULT_BLUR_MASK);
+  const [customTextOverlay, setCustomTextOverlayState] =
+    useState<CustomTextOverlay>(DEFAULT_CUSTOM_TEXT_OVERLAY);
   const [activePresetId, setActivePresetId] = useState<string | null>(
     'classic',
   );
 
   // 输出状态
   const [outputPath, setOutputPathState] = useState<string | null>(null);
+  const [exportSettings, setExportSettingsState] =
+    useState<VideoExportSettings>(DEFAULT_EXPORT_SETTINGS);
 
   // 进度状态
   const [progress, setProgress] = useState<MergeProgress>({
@@ -155,6 +176,11 @@ export function useSubtitleMerge(
       });
       if (result.success && result.data) {
         setVideoInfo(result.data);
+        setExportSettingsState((prev) => ({
+          ...prev,
+          customWidth: result.data.width || prev.customWidth,
+          customHeight: result.data.height || prev.customHeight,
+        }));
         // 自动生成输出路径
         const outputResult = await window.ipc.invoke(
           'subtitleMerge:generateOutputPath',
@@ -263,6 +289,17 @@ export function useSubtitleMerge(
     setActivePresetId(null);
   }, []);
 
+  const updateBlurMask = useCallback((updates: Partial<SubtitleBlurMask>) => {
+    setBlurMaskState((prev) => ({ ...prev, ...updates }));
+  }, []);
+
+  const updateCustomTextOverlay = useCallback(
+    (updates: Partial<CustomTextOverlay>) => {
+      setCustomTextOverlayState((prev) => ({ ...prev, ...updates }));
+    },
+    [],
+  );
+
   // 应用预设样式
   const applyPreset = useCallback((presetId: string) => {
     const preset = STYLE_PRESETS.find((p) => p.id === presetId);
@@ -297,6 +334,19 @@ export function useSubtitleMerge(
     setOutputPathState(path);
   }, []);
 
+  const updateExportSettings = useCallback(
+    (updates: Partial<VideoExportSettings>) => {
+      setExportSettingsState((prev) => {
+        const next = { ...prev, ...updates };
+        if (next.customFps !== undefined) {
+          next.customFps = Math.min(60, Math.max(1, next.customFps));
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
   // 开始合并
   const startMerge = useCallback(async () => {
     if (!videoPath || !subtitlePath || !outputPath) return;
@@ -314,6 +364,9 @@ export function useSubtitleMerge(
         subtitlePath,
         outputPath,
         style,
+        blurMask,
+        customTextOverlay,
+        exportSettings,
       };
       const result = await window.ipc.invoke(
         'subtitleMerge:startMerge',
@@ -352,7 +405,18 @@ export function useSubtitleMerge(
       });
       onError?.(errorMessage);
     }
-  }, [videoPath, subtitlePath, outputPath, style, onComplete, onError, t]);
+  }, [
+    videoPath,
+    subtitlePath,
+    outputPath,
+    style,
+    blurMask,
+    customTextOverlay,
+    exportSettings,
+    onComplete,
+    onError,
+    t,
+  ]);
 
   // 打开输出文件夹
   const openOutputFolder = useCallback(async () => {
@@ -380,10 +444,13 @@ export function useSubtitleMerge(
 
     // 样式状态
     style,
+    blurMask,
+    customTextOverlay,
     activePresetId,
 
     // 输出状态
     outputPath,
+    exportSettings,
 
     // 进度状态
     progress,
@@ -399,12 +466,15 @@ export function useSubtitleMerge(
     // 样式操作方法
     setStyle,
     updateStyle,
+    updateBlurMask,
+    updateCustomTextOverlay,
     applyPreset,
     resetStyle,
 
     // 输出操作方法
     selectOutputPath,
     setOutputPath,
+    updateExportSettings,
 
     // 合并操作方法
     startMerge,

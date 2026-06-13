@@ -12,11 +12,22 @@ import { logMessage } from './storeManager';
 import { timemarkToSeconds } from './fileUtils';
 import type {
   SubtitleStyle,
+  SubtitleBlurMask,
+  VideoExportSettings,
   MergeConfig,
   MergeProgress,
   VideoInfo,
   SubtitleAlignment,
+  CustomTextOverlay,
 } from '../../types/subtitleMerge';
+import {
+  detectSubtitleFormat,
+  parseSubtitleEntries,
+  serializeSubtitleEntries,
+  formatAssTime,
+  type SubtitleFormat,
+} from './subtitleFormats';
+import { wrapSubtitleTextForVideo } from './subtitleTextWrap';
 
 // 设置 ffmpeg 路径
 const ffmpegPath = ffmpegStatic.replace('app.asar', 'app.asar.unpacked');
@@ -107,19 +118,33 @@ export function buildForceStyle(style: SubtitleStyle): string {
   parts.push(`FontSize=${style.fontSize}`);
 
   // 颜色设置 (ASS 格式)
-  parts.push(`PrimaryColour=${cssColorToAss(style.primaryColor)}`);
-  parts.push(`OutlineColour=${cssColorToAss(style.outlineColor)}`);
-  parts.push(`BackColour=${cssColorToAss(style.backColor, 128)}`);
+  parts.push(
+    `PrimaryColour=${cssColorToAss(style.primaryColor, style.primaryAlpha ?? 0)}`,
+  );
+  parts.push(
+    `SecondaryColour=${cssColorToAss(style.secondaryColor ?? style.primaryColor, 0)}`,
+  );
+  parts.push(
+    `OutlineColour=${cssColorToAss(style.outlineColor, style.outlineAlpha ?? 0)}`,
+  );
+  parts.push(
+    `BackColour=${cssColorToAss(style.backColor, style.backAlpha ?? 128)}`,
+  );
 
   // 字体样式
   if (style.bold) parts.push('Bold=1');
   if (style.italic) parts.push('Italic=1');
   if (style.underline) parts.push('Underline=1');
+  if (style.strikeOut) parts.push('StrikeOut=1');
 
   // 边框和阴影
   parts.push(`BorderStyle=${style.borderStyle}`);
   parts.push(`Outline=${style.outline}`);
   parts.push(`Shadow=${style.shadow}`);
+  parts.push(`ScaleX=${style.scaleX ?? 100}`);
+  parts.push(`ScaleY=${style.scaleY ?? 100}`);
+  parts.push(`Spacing=${style.letterSpacing ?? 0}`);
+  parts.push(`Angle=${style.angle ?? 0}`);
 
   // 对齐位置 (转换为 ASS 格式)
   const assAlignment = convertAlignment(style.alignment);
@@ -129,6 +154,7 @@ export function buildForceStyle(style: SubtitleStyle): string {
   parts.push(`MarginL=${style.marginL}`);
   parts.push(`MarginR=${style.marginR}`);
   parts.push(`MarginV=${style.marginV}`);
+  parts.push(`WrapStyle=${style.wrapStyle ?? 1}`);
 
   return parts.join(',');
 }
@@ -192,6 +218,300 @@ function pathNeedsSafeCopy(filePath: string): boolean {
   return /['\[\];,]/.test(filePath);
 }
 
+function getBlurRegionPixels(
+  blurMask: SubtitleBlurMask,
+  videoWidth: number,
+  videoHeight: number,
+): { x: number; y: number; w: number; h: number } {
+  const x = Math.round((videoWidth * blurMask.xPercent) / 100);
+  const y = Math.round((videoHeight * blurMask.yPercent) / 100);
+  const w = Math.max(2, Math.round((videoWidth * blurMask.widthPercent) / 100));
+  const h = Math.max(
+    2,
+    Math.round((videoHeight * blurMask.heightPercent) / 100),
+  );
+
+  return {
+    x: Math.min(x, Math.max(0, videoWidth - 2)),
+    y: Math.min(y, Math.max(0, videoHeight - 2)),
+    w: Math.min(w, videoWidth - x),
+    h: Math.min(h, videoHeight - y),
+  };
+}
+
+/**
+ * 生成自定义文字叠加 ASS 临时文件（全程显示，如频道名）
+ */
+async function createWatermarkAssFile(
+  overlay: CustomTextOverlay,
+  videoWidth: number,
+  videoHeight: number,
+  durationSec: number,
+): Promise<string> {
+  const w = Math.max(1, videoWidth);
+  const h = Math.max(1, videoHeight);
+  const minX = (overlay.marginL / w) * 100;
+  const maxX = ((w - overlay.marginR) / w) * 100;
+  const minY = (overlay.marginV / h) * 100;
+  const maxY = ((h - overlay.marginV) / h) * 100;
+  const x = Math.round(
+    (Math.max(minX, Math.min(maxX, overlay.posXPercent)) / 100) * w,
+  );
+  const y = Math.round(
+    (Math.max(minY, Math.min(maxY, overlay.posYPercent)) / 100) * h,
+  );
+  const assAlign = convertAlignment(overlay.alignment);
+  const primary = cssColorToAss(overlay.primaryColor, 0);
+  const outlineCol = cssColorToAss(overlay.outlineColor, 0);
+  const backCol = cssColorToAss(overlay.backColor, 128);
+  const endMs = Math.max(1000, Math.round((durationSec || 3600) * 1000));
+  const safeText = overlay.text
+    .replace(/\r/g, '')
+    .replace(/\n/g, '\\N')
+    .replace(/{/g, '\\{')
+    .replace(/}/g, '\\}');
+  const inlineTags = [
+    `{\\pos(${x},${y})}`,
+    overlay.scaleX !== 100 ? `{\\fscx${overlay.scaleX}}` : '',
+    overlay.scaleY !== 100 ? `{\\fscy${overlay.scaleY}}` : '',
+    overlay.letterSpacing ? `{\\fsp${overlay.letterSpacing}}` : '',
+    overlay.angle ? `{\\frz${overlay.angle}}` : '',
+  ]
+    .filter(Boolean)
+    .join('');
+
+  const content = `[Script Info]
+ScriptType: v4.00+
+PlayResX: ${videoWidth}
+PlayResY: ${videoHeight}
+WrapStyle: 0
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Watermark,${overlay.fontName},${overlay.fontSize},${primary},${primary},${outlineCol},${backCol},${overlay.bold ? -1 : 0},${overlay.italic ? -1 : 0},${overlay.underline ? -1 : 0},${overlay.strikeOut ? -1 : 0},100,100,0,0,${overlay.borderStyle},${overlay.outline},${overlay.shadow ?? 0},${assAlign},${overlay.marginL},${overlay.marginR},${overlay.marginV},1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 1,0:00:00.00,${formatAssTime(endMs)},Watermark,,0,0,0,,${inlineTags}${safeText}
+`;
+
+  const tmpDir = path.join(os.tmpdir(), 'video-subtitle-master');
+  if (!fs.existsSync(tmpDir)) {
+    fs.mkdirSync(tmpDir, { recursive: true });
+  }
+  const tmpPath = path.join(tmpDir, `watermark_${Date.now()}.ass`);
+  await fs.promises.writeFile(tmpPath, content, 'utf-8');
+  logMessage(`创建自定义文字叠加 ASS: ${tmpPath}`, 'info');
+  return tmpPath;
+}
+
+/**
+ * 预处理字幕：整词换行并写入临时文件
+ */
+async function prepareSubtitleForMerge(
+  subtitlePath: string,
+  style: SubtitleStyle,
+  videoWidth: number,
+): Promise<{ path: string; tempPaths: string[] }> {
+  const tempPaths: string[] = [];
+  const format: SubtitleFormat = detectSubtitleFormat(subtitlePath);
+  const content = await fs.promises.readFile(subtitlePath, 'utf-8');
+  const entries = parseSubtitleEntries(content, format);
+
+  const wrappedEntries = entries.map((entry) => {
+    const originalText = (entry.content || []).join('\n');
+    const wrappedText = wrapSubtitleTextForVideo(
+      originalText,
+      style,
+      videoWidth,
+    );
+    return {
+      id: entry.id,
+      startEndTime: entry.startEndTime,
+      text: wrappedText,
+    };
+  });
+
+  const serialized = serializeSubtitleEntries(wrappedEntries, format);
+  const tmpDir = path.join(os.tmpdir(), 'video-subtitle-master');
+  if (!fs.existsSync(tmpDir)) {
+    fs.mkdirSync(tmpDir, { recursive: true });
+  }
+
+  const ext = path.extname(subtitlePath) || '.srt';
+  const tmpPath = path.join(tmpDir, `wrapped_${Date.now()}${ext}`);
+  await fs.promises.writeFile(tmpPath, serialized, 'utf-8');
+  tempPaths.push(tmpPath);
+  logMessage(`创建换行预处理字幕文件: ${tmpPath}`, 'info');
+
+  return { path: tmpPath, tempPaths };
+}
+
+function buildPostProcessChain(
+  scaleVideo: boolean,
+  targetWidth: number,
+  targetHeight: number,
+  changeFps: boolean,
+  targetFps: number,
+): string {
+  const parts: string[] = [];
+  if (scaleVideo && targetWidth > 0 && targetHeight > 0) {
+    parts.push(`scale=${targetWidth}:${targetHeight}`);
+  }
+  if (changeFps && targetFps > 0) {
+    parts.push(`fps=${targetFps}`);
+  }
+  return parts.join(',');
+}
+
+function parseFrameRate(value?: string | number): number {
+  if (value === undefined || value === null) return 0;
+  if (typeof value === 'number') return value;
+  const trimmed = String(value).trim();
+  if (!trimmed) return 0;
+  if (trimmed.includes('/')) {
+    const [num, den] = trimmed.split('/').map(Number);
+    if (!den) return 0;
+    return num / den;
+  }
+  const parsed = parseFloat(trimmed);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function resolveExportTarget(
+  exportSettings: VideoExportSettings | undefined,
+  sourceWidth: number,
+  sourceHeight: number,
+  sourceFps: number,
+): {
+  targetWidth: number;
+  targetHeight: number;
+  scaleVideo: boolean;
+  targetFps: number;
+  changeFps: boolean;
+} {
+  let targetWidth = sourceWidth;
+  let targetHeight = sourceHeight;
+
+  if (exportSettings?.resolutionPreset === 'custom') {
+    targetWidth = exportSettings.customWidth || sourceWidth;
+    targetHeight = exportSettings.customHeight || sourceHeight;
+  } else if (
+    exportSettings?.resolutionPreset &&
+    exportSettings.resolutionPreset !== 'source'
+  ) {
+    const [widthText, heightText] = exportSettings.resolutionPreset.split('x');
+    const presetWidth = parseInt(widthText, 10);
+    const presetHeight = parseInt(heightText, 10);
+    if (presetWidth > 0 && presetHeight > 0) {
+      targetWidth = presetWidth;
+      targetHeight = presetHeight;
+    }
+  }
+
+  const scaleVideo =
+    sourceWidth > 0 &&
+    sourceHeight > 0 &&
+    (targetWidth !== sourceWidth || targetHeight !== sourceHeight);
+
+  let targetFps = sourceFps > 0 ? sourceFps : 30;
+  let changeFps = false;
+  if (exportSettings?.fpsMode === 'custom') {
+    targetFps = Math.min(60, Math.max(1, exportSettings.customFps || 30));
+    changeFps = sourceFps <= 0 || Math.abs(targetFps - sourceFps) > 0.01;
+  }
+
+  return {
+    targetWidth,
+    targetHeight,
+    scaleVideo,
+    targetFps,
+    changeFps,
+  };
+}
+
+function buildVideoFilterGraph(
+  subtitlePath: string,
+  forceStyle: string,
+  blurMask: SubtitleBlurMask | undefined,
+  watermarkPath: string | undefined,
+  sourceWidth: number,
+  sourceHeight: number,
+  targetWidth: number,
+  targetHeight: number,
+  scaleVideo: boolean,
+  changeFps: boolean,
+  targetFps: number,
+): { filterGraph: string; outputLabel: string; useComplexFilter: boolean } {
+  const escapedSubPath = escapeSubtitlePath(subtitlePath);
+  const subtitleRenderWidth = targetWidth > 0 ? targetWidth : sourceWidth;
+  const subtitleRenderHeight = targetHeight > 0 ? targetHeight : sourceHeight;
+  const originalSize =
+    subtitleRenderWidth > 0 && subtitleRenderHeight > 0
+      ? `:original_size=${subtitleRenderWidth}x${subtitleRenderHeight}`
+      : '';
+  const subtitlesFilter = `subtitles='${escapedSubPath}'${originalSize}:force_style='${forceStyle}'`;
+  const watermarkFilter = watermarkPath
+    ? `,subtitles='${escapeSubtitlePath(watermarkPath)}'${originalSize}`
+    : '';
+  const postChain = buildPostProcessChain(
+    scaleVideo,
+    targetWidth,
+    targetHeight,
+    changeFps,
+    targetFps,
+  );
+
+  const blurEnabled = blurMask?.enabled && sourceWidth > 0 && sourceHeight > 0;
+
+  if (blurEnabled) {
+    const { x, y, w, h } = getBlurRegionPixels(
+      blurMask!,
+      sourceWidth,
+      sourceHeight,
+    );
+    const strength = Math.max(1, blurMask!.strength);
+    const graph = [
+      '[0:v]split[sm_main][sm_tmp]',
+      `[sm_tmp]crop=${w}:${h}:${x}:${y},boxblur=luma_radius=${strength}:luma_power=2[sm_blur]`,
+      `[sm_main][sm_blur]overlay=${x}:${y}[sm_base]`,
+      `[sm_base]${subtitlesFilter}${watermarkFilter}[sm_out]`,
+    ];
+
+    let outputLabel = '[sm_out]';
+    if (postChain) {
+      graph.push(`[sm_out]${postChain}[sm_final]`);
+      outputLabel = '[sm_final]';
+    }
+
+    return {
+      filterGraph: graph.join(';'),
+      outputLabel,
+      useComplexFilter: true,
+    };
+  }
+
+  if (postChain) {
+    return {
+      filterGraph: `${subtitlesFilter}${watermarkFilter},${postChain}`,
+      outputLabel: '',
+      useComplexFilter: false,
+    };
+  }
+
+  return {
+    filterGraph: `${subtitlesFilter}${watermarkFilter}`,
+    outputLabel: '',
+    useComplexFilter: false,
+  };
+}
+
+function cleanupTempSubtitles(tempPaths: string[]): void {
+  for (const tmpPath of tempPaths) {
+    cleanupTempSubtitle(tmpPath);
+  }
+}
+
 /**
  * 获取视频信息
  */
@@ -208,6 +528,9 @@ export function getVideoInfo(videoPath: string): Promise<VideoInfo> {
         (s) => s.codec_type === 'video',
       );
       const stats = fs.statSync(videoPath);
+      const fps = parseFrameRate(
+        videoStream?.avg_frame_rate || videoStream?.r_frame_rate,
+      );
 
       resolve({
         path: videoPath,
@@ -216,6 +539,7 @@ export function getVideoInfo(videoPath: string): Promise<VideoInfo> {
         width: videoStream?.width || 0,
         height: videoStream?.height || 0,
         size: stats.size,
+        fps: Math.round(fps * 100) / 100,
       });
     });
   });
@@ -228,18 +552,26 @@ export async function mergeSubtitleToVideo(
   config: MergeConfig,
   onProgress?: (progress: MergeProgress) => void,
 ): Promise<string> {
-  const { videoPath, subtitlePath, outputPath, style } = config;
+  const {
+    videoPath,
+    subtitlePath,
+    outputPath,
+    style,
+    blurMask,
+    customTextOverlay,
+    exportSettings,
+  } = config;
 
-  // 获取视频分辨率，用于显式设置 original_size
-  // 防止滤镜重新初始化时因自动检测失败而报错
-  let originalSize = '';
-  // 视频总时长（秒），用于在 progress.percent 不可用时自算合并进度（issue #310）
   let totalDurationSec = 0;
+  let videoWidth = 0;
+  let videoHeight = 0;
+  let sourceFps = 0;
+
   try {
     const videoInfo = await getVideoInfo(videoPath);
-    if (videoInfo.width > 0 && videoInfo.height > 0) {
-      originalSize = `:original_size=${videoInfo.width}x${videoInfo.height}`;
-    }
+    videoWidth = videoInfo.width;
+    videoHeight = videoInfo.height;
+    sourceFps = videoInfo.fps;
     totalDurationSec = videoInfo.duration || 0;
   } catch (err) {
     logMessage(
@@ -248,30 +580,88 @@ export async function mergeSubtitleToVideo(
     );
   }
 
-  // 如果字幕路径包含特殊字符（如单引号），则复制到临时目录使用安全文件名
-  // 这是最可靠的方式，因为 ffmpeg 的滤镜字符串解析对特殊字符的处理在
-  // 不同版本、不同平台、不同库封装下行为可能不一致
+  const exportTarget = resolveExportTarget(
+    exportSettings,
+    videoWidth,
+    videoHeight,
+    sourceFps,
+  );
+  const wrapWidth =
+    exportTarget.targetWidth > 0
+      ? exportTarget.targetWidth
+      : videoWidth || 1920;
+  const wrapHeight =
+    exportTarget.targetHeight > 0
+      ? exportTarget.targetHeight
+      : videoHeight || 1080;
+
+  const tempPaths: string[] = [];
   let actualSubPath = subtitlePath;
-  let tmpSubPath: string | null = null;
-  if (pathNeedsSafeCopy(subtitlePath)) {
-    tmpSubPath = createSafeSubtitleCopy(subtitlePath);
-    actualSubPath = tmpSubPath;
+  let watermarkPath: string | undefined;
+
+  if (
+    customTextOverlay?.enabled &&
+    customTextOverlay.text.trim() &&
+    wrapWidth > 0 &&
+    wrapHeight > 0
+  ) {
+    try {
+      watermarkPath = await createWatermarkAssFile(
+        customTextOverlay,
+        wrapWidth,
+        wrapHeight,
+        totalDurationSec,
+      );
+      tempPaths.push(watermarkPath);
+    } catch (err) {
+      logMessage(`创建自定义文字叠加失败: ${err}`, 'warning');
+    }
+  }
+
+  try {
+    const prepared = await prepareSubtitleForMerge(
+      subtitlePath,
+      style,
+      wrapWidth,
+    );
+    actualSubPath = prepared.path;
+    tempPaths.push(...prepared.tempPaths);
+  } catch (err) {
+    logMessage(`字幕换行预处理失败，使用原文件: ${err}`, 'warning');
+    if (pathNeedsSafeCopy(subtitlePath)) {
+      const tmpSubPath = createSafeSubtitleCopy(subtitlePath);
+      actualSubPath = tmpSubPath;
+      tempPaths.push(tmpSubPath);
+    }
   }
 
   return new Promise((resolve, reject) => {
     const forceStyle = buildForceStyle(style);
-    const escapedSubPath = escapeSubtitlePath(actualSubPath);
-    const subtitlesFilter = `subtitles='${escapedSubPath}'${originalSize}:force_style='${forceStyle}'`;
+    const { filterGraph, outputLabel, useComplexFilter } =
+      buildVideoFilterGraph(
+        actualSubPath,
+        forceStyle,
+        blurMask,
+        watermarkPath,
+        videoWidth,
+        videoHeight,
+        exportTarget.targetWidth,
+        exportTarget.targetHeight,
+        exportTarget.scaleVideo,
+        exportTarget.changeFps,
+        exportTarget.targetFps,
+      );
 
     logMessage(`开始合并字幕: ${videoPath}`, 'info');
     logMessage(`字幕文件: ${subtitlePath}`, 'info');
-    if (tmpSubPath) {
-      logMessage(`使用临时字幕文件: ${tmpSubPath}`, 'info');
-    }
+    logMessage(`实际字幕文件: ${actualSubPath}`, 'info');
     logMessage(`输出文件: ${outputPath}`, 'info');
-    logMessage(`subtitles filter: ${subtitlesFilter}`, 'info');
+    logMessage(
+      `导出设置: ${exportTarget.targetWidth}x${exportTarget.targetHeight} @ ${exportTarget.targetFps}fps`,
+      'info',
+    );
+    logMessage(`video filter: ${filterGraph}`, 'info');
 
-    // 发送初始进度
     onProgress?.({
       percent: 0,
       timeMark: '00:00:00',
@@ -279,13 +669,25 @@ export async function mergeSubtitleToVideo(
       status: 'processing',
     });
 
-    ffmpeg(videoPath)
-      .videoFilters(subtitlesFilter)
-      .outputOptions([
+    const command = ffmpeg(videoPath);
+
+    if (useComplexFilter) {
+      command.complexFilter(filterGraph);
+      command.outputOptions([
+        '-map',
+        outputLabel,
+        '-map',
+        '0:a?',
         '-c:a',
-        'copy', // 保持音频编码不变
-        '-y', // 覆盖输出文件
-      ])
+        'copy',
+        '-y',
+      ]);
+    } else {
+      command.videoFilters(filterGraph);
+      command.outputOptions(['-c:a', 'copy', '-y']);
+    }
+
+    command
       .on('start', (cmd) => {
         logMessage(`FFmpeg 命令: ${cmd}`, 'info');
       })
@@ -312,10 +714,7 @@ export async function mergeSubtitleToVideo(
         });
       })
       .on('end', () => {
-        // 清理临时文件
-        if (tmpSubPath) {
-          cleanupTempSubtitle(tmpSubPath);
-        }
+        cleanupTempSubtitles(tempPaths);
         logMessage('字幕合并完成', 'info');
         onProgress?.({
           percent: 100,
@@ -326,10 +725,7 @@ export async function mergeSubtitleToVideo(
         resolve(outputPath);
       })
       .on('error', (err) => {
-        // 清理临时文件
-        if (tmpSubPath) {
-          cleanupTempSubtitle(tmpSubPath);
-        }
+        cleanupTempSubtitles(tempPaths);
         logMessage(`字幕合并失败: ${err.message}`, 'error');
         onProgress?.({
           percent: 0,

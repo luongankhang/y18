@@ -120,14 +120,19 @@ export default function BasicStyleSettings({
         </div>
       </div>
 
-      {/* 对齐位置 */}
-      <div className="space-y-4">
-        <Label className="text-sm block">{t('position') || '位置'}</Label>
-        <AlignmentSelector
-          value={style.alignment}
-          onChange={(value) => onUpdateStyle({ alignment: value })}
-          disabled={disabled}
-        />
+      {/* 字幕对齐位置 */}
+      <div className="space-y-3 pt-1">
+        <div>
+          <Label className="text-sm">{t('position')}</Label>
+          <p className="text-xs text-muted-foreground mt-1 mb-2">
+            {t('subtitleAlignmentHint')}
+          </p>
+          <AlignmentSelector
+            value={style.alignment}
+            onChange={(value) => onUpdateStyle({ alignment: value })}
+            disabled={disabled}
+          />
+        </div>
       </div>
     </div>
   );

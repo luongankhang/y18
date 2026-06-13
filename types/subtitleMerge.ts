@@ -17,6 +17,9 @@ export type SubtitleAlignment = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
  */
 export type BorderStyle = 1 | 3;
 
+/** ASS WrapStyle: 0=智能 1=行尾 2=不换行 3=更智能 */
+export type WrapStyle = 0 | 1 | 2 | 3;
+
 /**
  * 字幕样式配置
  * 所有颜色使用 CSS 格式 (#RRGGBB 或 rgba)
@@ -28,22 +31,44 @@ export interface SubtitleStyle {
   fontSize: number;
   /** 主要颜色 (CSS 格式) */
   primaryColor: string;
+  /** 次要颜色 (卡拉OK/高亮) */
+  secondaryColor: string;
   /** 边框颜色 (CSS 格式) */
   outlineColor: string;
   /** 背景/阴影颜色 (CSS 格式) */
   backColor: string;
+  /** 主色透明度 ASS alpha (0=不透明, 255=全透明) */
+  primaryAlpha: number;
+  /** 边框色透明度 */
+  outlineAlpha: number;
+  /** 背景色透明度 */
+  backAlpha: number;
   /** 是否加粗 */
   bold: boolean;
   /** 是否斜体 */
   italic: boolean;
   /** 是否下划线 */
   underline: boolean;
+  /** 是否删除线 */
+  strikeOut: boolean;
   /** 边框样式 */
   borderStyle: BorderStyle;
   /** 边框宽度 (0-10) */
   outline: number;
   /** 阴影距离 (0-10) */
   shadow: number;
+  /** 水平缩放 (50-200, 100=正常) */
+  scaleX: number;
+  /** 垂直缩放 (50-200, 100=正常) */
+  scaleY: number;
+  /** 字间距 (ASS Spacing) */
+  letterSpacing: number;
+  /** 旋转角度 (度) */
+  angle: number;
+  /** 行高 (预览用) */
+  lineHeight: number;
+  /** 换行策略 */
+  wrapStyle: WrapStyle;
   /** 对齐位置 */
   alignment: SubtitleAlignment;
   /** 左边距 (px) */
@@ -52,6 +77,69 @@ export interface SubtitleStyle {
   marginR: number;
   /** 上下边距 (px) */
   marginV: number;
+}
+
+/**
+ * 自定义文字叠加（如水印、频道名），与字幕文件无关
+ */
+export interface CustomTextOverlay {
+  /** 是否启用 */
+  enabled: boolean;
+  /** 叠加文字内容 */
+  text: string;
+  /** X 位置 (0-100%，相对视频宽度) */
+  posXPercent: number;
+  /** Y 位置 (0-100%，相对视频高度) */
+  posYPercent: number;
+  /** 锚点对齐（决定 pos 点的参考角） */
+  alignment: SubtitleAlignment;
+  /** 字体名称 */
+  fontName: string;
+  /** 字号 */
+  fontSize: number;
+  /** 文字颜色 */
+  primaryColor: string;
+  /** 描边颜色 */
+  outlineColor: string;
+  /** 描边宽度 */
+  outline: number;
+  /** 阴影距离 */
+  shadow: number;
+  /** 加粗 */
+  bold: boolean;
+  /** 斜体 */
+  italic: boolean;
+  /** 下划线 */
+  underline: boolean;
+  /** 删除线 */
+  strikeOut: boolean;
+  /** 边框样式 */
+  borderStyle: BorderStyle;
+  /** 背景/阴影颜色 */
+  backColor: string;
+  /** 水平缩放 (50-200) */
+  scaleX: number;
+  /** 垂直缩放 (50-200) */
+  scaleY: number;
+  /** 字间距 */
+  letterSpacing: number;
+  /** 旋转角度 (度) */
+  angle: number;
+  /** 左边距 (px，距视频边缘) */
+  marginL: number;
+  /** 右边距 (px) */
+  marginR: number;
+  /** 上下边距 (px) */
+  marginV: number;
+}
+
+/** 合并页可编辑字幕 cue */
+export interface MergeCue {
+  id: string;
+  startEndTime: string;
+  text: string;
+  startTimeInSeconds: number;
+  endTimeInSeconds: number;
 }
 
 /**
@@ -69,6 +157,25 @@ export interface StylePreset {
 }
 
 /**
+ * 模糊遮罩配置（用于遮盖视频内嵌原字幕）
+ * 位置与尺寸均按视频分辨率百分比表示
+ */
+export interface SubtitleBlurMask {
+  /** 是否启用模糊遮罩 */
+  enabled: boolean;
+  /** 遮罩左上角 X 位置 (0-100%) */
+  xPercent: number;
+  /** 遮罩左上角 Y 位置 (0-100%) */
+  yPercent: number;
+  /** 遮罩宽度 (0-100%) */
+  widthPercent: number;
+  /** 遮罩高度 (0-100%) */
+  heightPercent: number;
+  /** 模糊强度 (1-30) */
+  strength: number;
+}
+
+/**
  * 合并配置
  */
 export interface MergeConfig {
@@ -80,6 +187,12 @@ export interface MergeConfig {
   outputPath: string;
   /** 字幕样式 */
   style: SubtitleStyle;
+  /** 模糊遮罩（可选） */
+  blurMask?: SubtitleBlurMask;
+  /** 自定义文字叠加（如水印、频道名） */
+  customTextOverlay?: CustomTextOverlay;
+  /** 导出分辨率 / FPS 设置 */
+  exportSettings?: VideoExportSettings;
 }
 
 /**
@@ -119,6 +232,36 @@ export interface VideoInfo {
   height: number;
   /** 文件大小 (bytes) */
   size: number;
+  /** 帧率 */
+  fps: number;
+}
+
+/**
+ * 导出分辨率预设
+ */
+export type ResolutionPreset =
+  | 'source'
+  | '3840x2160'
+  | '2560x1440'
+  | '1920x1080'
+  | '1280x720'
+  | '854x480'
+  | 'custom';
+
+/**
+ * 视频导出设置
+ */
+export interface VideoExportSettings {
+  /** 分辨率预设 */
+  resolutionPreset: ResolutionPreset;
+  /** 自定义宽度 */
+  customWidth: number;
+  /** 自定义高度 */
+  customHeight: number;
+  /** FPS 模式：跟随源视频或自定义 */
+  fpsMode: 'source' | 'custom';
+  /** 自定义 FPS */
+  customFps: number;
 }
 
 /**
