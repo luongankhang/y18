@@ -8,7 +8,7 @@ export interface SpellIssue {
   suggestion?: string;
 }
 
-const VI_WORD_PATTERN = /[A-Za-zÀ-ỹà-ỹ]+(?:[''][A-Za-zÀ-ỹà-ỹ]+)*/gu;
+const VI_WORD_PATTERN = /[A-Za-zÀ-ỹà-ỹ]+(?:[''][A-Za-zÀ-ỹà-ỹ]+)*/g;
 
 let dictionaryPromise: Promise<Set<string>> | null = null;
 let unaccentedIndexPromise: Promise<Map<string, string>> | null = null;
@@ -16,7 +16,7 @@ let unaccentedIndexPromise: Promise<Map<string, string>> | null = null;
 function stripDiacritics(value: string): string {
   return value
     .normalize('NFD')
-    .replace(/\p{M}/gu, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/đ/gi, (match) => (match === 'đ' ? 'd' : 'D'));
 }
 
@@ -40,12 +40,12 @@ async function loadUnaccentedIndex(): Promise<Map<string, string>> {
   if (!unaccentedIndexPromise) {
     unaccentedIndexPromise = loadDictionary().then((dict) => {
       const index = new Map<string, string>();
-      for (const word of dict) {
+      dict.forEach((word) => {
         const key = stripDiacritics(word);
         if (!index.has(key)) {
           index.set(key, word);
         }
-      }
+      });
       return index;
     });
   }

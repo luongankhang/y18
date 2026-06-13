@@ -16,13 +16,13 @@ export function QuitConfirmDialog({
   const { t } = useTranslation('common');
 
   const handleDismiss = () => {
-    window?.ipc?.send('cancel-app-quit');
+    window?.ipc?.send('cancel-app-quit', null);
     onOpenChange(false);
   };
 
   const handleConfirmQuit = () => {
     onOpenChange(false);
-    window?.ipc?.send('confirm-app-quit');
+    window?.ipc?.send('confirm-app-quit', null);
   };
 
   return (
