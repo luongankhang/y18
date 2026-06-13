@@ -4,6 +4,7 @@ import {
   changeMediaSpeed,
   convertToWhisperFormat,
   extractMediaAudio,
+  mergeAudioToVideo,
   mergeVideosInOrder,
   type FfmpegHelperAudioFormat,
 } from './ffmpegHelperCore';
@@ -35,6 +36,16 @@ function mapHelperError(error: unknown): string {
       return 'MERGE_REQUIRES_MIN_TWO_FILES';
     case 'MERGE_REQUIRES_VIDEO':
       return 'MERGE_REQUIRES_VIDEO';
+    case 'INVALID_VOLUME':
+      return 'INVALID_VOLUME';
+    case 'INVALID_AUDIO_OFFSET':
+      return 'INVALID_AUDIO_OFFSET';
+    case 'INVALID_MERGE_AUDIO_MODE':
+      return 'INVALID_MERGE_AUDIO_MODE';
+    case 'MERGE_AUDIO_REQUIRES_VIDEO':
+      return 'MERGE_AUDIO_REQUIRES_VIDEO';
+    case 'NO_EXTERNAL_AUDIO':
+      return 'NO_EXTERNAL_AUDIO';
     default:
       return message || 'UNKNOWN_ERROR';
   }
@@ -90,6 +101,39 @@ export function setupFfmpegHandlers() {
         },
       ],
     });
+  });
+
+  ipcMain.handle('ffmpeg-merge-audio', async (event, options) => {
+    try {
+      const {
+        videoFile,
+        audioFile,
+        outputFile,
+        mode,
+        originalVolume,
+        externalVolume,
+        audioOffsetSec,
+        loopExternalAudio,
+        copyVideo,
+      } = options;
+      const result = await mergeAudioToVideo({
+        videoFile,
+        audioFile,
+        outputFile,
+        mode,
+        originalVolume: Number(originalVolume),
+        externalVolume: Number(externalVolume),
+        audioOffsetSec: Number(audioOffsetSec),
+        loopExternalAudio: Boolean(loopExternalAudio),
+        copyVideo: copyVideo !== false,
+        onProgress: ({ percent }) => {
+          sendHelperProgress(event, { task: 'merge-audio', percent });
+        },
+      });
+      return { success: true, outputFile: result.outputFile };
+    } catch (error) {
+      throw new Error(mapHelperError(error));
+    }
   });
 
   ipcMain.handle('ffmpeg-merge-videos', async (event, options) => {

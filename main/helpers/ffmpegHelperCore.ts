@@ -44,6 +44,23 @@ export interface MergeVideosOptions {
   onProgress?: (progress: FfmpegHelperProgress) => void;
 }
 
+export type MergeAudioMode = 'mix' | 'replace';
+
+export interface MergeAudioToVideoOptions {
+  videoFile: string;
+  audioFile: string;
+  outputFile: string;
+  mode: MergeAudioMode;
+  /** 0 = mute, 1 = 100%, 2 = 200% */
+  originalVolume: number;
+  externalVolume: number;
+  /** Positive = delay external audio; negative = trim start of external audio */
+  audioOffsetSec: number;
+  loopExternalAudio: boolean;
+  copyVideo: boolean;
+  onProgress?: (progress: FfmpegHelperProgress) => void;
+}
+
 export type FfmpegHelperVideoFormat = 'mp4' | 'mkv' | 'mov';
 
 interface MediaProbeResult {
@@ -477,6 +494,226 @@ export async function mergeVideosInOrder(
       })
       .on('error', (err) => {
         logMessage(`[ffmpeg helper] merge-videos error: ${err}`, 'error');
+        reject(err);
+      })
+      .save(outputFile);
+  });
+
+  return { outputFile };
+}
+
+function clampVolume(volume: number): number {
+  if (!Number.isFinite(volume)) {
+    return 1;
+  }
+  return Math.min(2, Math.max(0, volume));
+}
+
+/** Build filter_complex graph to mix or replace audio on a video track. */
+export function buildMergeAudioFilterComplex(
+  mode: MergeAudioMode,
+  hasOriginalAudio: boolean,
+  originalVolume: number,
+  externalVolume: number,
+  audioOffsetSec: number,
+  videoDurationSec: number,
+  loopExternalAudio: boolean,
+): string {
+  const origVol = clampVolume(originalVolume);
+  const extVol = clampVolume(externalVolume);
+  const parts: string[] = [];
+  let extIn = '[1:a]';
+
+  if (loopExternalAudio && videoDurationSec > 0) {
+    parts.push(`${extIn}aloop=loop=-1:size=2e+09[extloop]`);
+    extIn = '[extloop]';
+    parts.push(
+      `${extIn}atrim=duration=${videoDurationSec},asetpts=PTS-STARTPTS[exttrim]`,
+    );
+    extIn = '[exttrim]';
+  }
+
+  const extSteps: string[] = [];
+  if (audioOffsetSec > 0) {
+    const ms = Math.round(audioOffsetSec * 1000);
+    extSteps.push(`adelay=${ms}|${ms}`);
+  } else if (audioOffsetSec < 0) {
+    extSteps.push(
+      `atrim=start=${Math.abs(audioOffsetSec)},asetpts=PTS-STARTPTS`,
+    );
+  }
+  extSteps.push(
+    `volume=${extVol},aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo`,
+  );
+
+  const extOutLabel = mode === 'replace' || !hasOriginalAudio ? 'outa' : 'ext';
+  parts.push(`${extIn}${extSteps.join(',')}[${extOutLabel}]`);
+
+  if (mode === 'replace' || !hasOriginalAudio) {
+    return parts.join(';');
+  }
+
+  parts.push(
+    `[0:a]volume=${origVol},aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[orig]`,
+  );
+  parts.push(
+    '[orig][ext]amix=inputs=2:duration=first:dropout_transition=0[outa]',
+  );
+
+  return parts.join(';');
+}
+
+/**
+ * Merge external audio into a video with volume controls and optional sync utilities.
+ */
+export async function mergeAudioToVideo(
+  options: MergeAudioToVideoOptions,
+): Promise<{ outputFile: string }> {
+  const {
+    videoFile,
+    audioFile,
+    mode,
+    originalVolume,
+    externalVolume,
+    audioOffsetSec,
+    loopExternalAudio,
+    copyVideo,
+    onProgress,
+  } = options;
+
+  assertInputFile(videoFile);
+  assertInputFile(audioFile);
+
+  if (mode !== 'mix' && mode !== 'replace') {
+    throw new Error('INVALID_MERGE_AUDIO_MODE');
+  }
+
+  if (
+    !Number.isFinite(originalVolume) ||
+    originalVolume < 0 ||
+    originalVolume > 2 ||
+    !Number.isFinite(externalVolume) ||
+    externalVolume < 0 ||
+    externalVolume > 2
+  ) {
+    throw new Error('INVALID_VOLUME');
+  }
+
+  if (
+    !Number.isFinite(audioOffsetSec) ||
+    audioOffsetSec < -3600 ||
+    audioOffsetSec > 3600
+  ) {
+    throw new Error('INVALID_AUDIO_OFFSET');
+  }
+
+  const videoProbe = await probeMedia(videoFile);
+  if (!videoProbe.hasVideo) {
+    throw new Error('MERGE_AUDIO_REQUIRES_VIDEO');
+  }
+
+  const audioProbe = await probeMedia(audioFile);
+  if (!audioProbe.hasAudio) {
+    throw new Error('NO_EXTERNAL_AUDIO');
+  }
+
+  const outputFile = prepareOutputFile(options.outputFile);
+  const videoDurationSec = await getMediaDurationSec(videoFile);
+  const filterComplex = buildMergeAudioFilterComplex(
+    mode,
+    videoProbe.hasAudio,
+    originalVolume,
+    externalVolume,
+    audioOffsetSec,
+    videoDurationSec,
+    loopExternalAudio,
+  );
+  const outputFormat = getOutputFormatFromPath(outputFile);
+
+  logMessage(
+    `[ffmpeg helper] merge-audio mode=${mode} origVol=${originalVolume} extVol=${externalVolume} offset=${audioOffsetSec}s loop=${loopExternalAudio}`,
+    'info',
+  );
+
+  await new Promise<void>((resolve, reject) => {
+    let command = ffmpeg().input(videoFile);
+
+    if (loopExternalAudio) {
+      command = command.input(audioFile).inputOptions(['-stream_loop', '-1']);
+    } else {
+      command = command.input(audioFile);
+    }
+
+    const outputOptions = [
+      '-filter_complex',
+      filterComplex,
+      '-map',
+      '0:v',
+      '-map',
+      '[outa]',
+      '-c:a',
+      'aac',
+      '-b:a',
+      '192k',
+      '-ar',
+      '48000',
+      '-ac',
+      '2',
+      '-movflags',
+      '+faststart',
+      '-y',
+    ];
+
+    if (copyVideo) {
+      outputOptions.push('-c:v', 'copy');
+    } else {
+      outputOptions.push(
+        '-c:v',
+        'libx264',
+        '-preset',
+        'fast',
+        '-crf',
+        '23',
+        '-pix_fmt',
+        'yuv420p',
+      );
+    }
+
+    command
+      .outputOptions(outputOptions)
+      .format(outputFormat)
+      .on('start', (cmdLine) => {
+        logMessage(`[ffmpeg helper] merge-audio start: ${cmdLine}`, 'info');
+        onProgress?.({ percent: 0 });
+      })
+      .on('progress', (progress) => {
+        let percent = progress.percent;
+
+        if (
+          (percent === undefined ||
+            percent === null ||
+            Number.isNaN(percent) ||
+            percent <= 0) &&
+          videoDurationSec > 0 &&
+          progress.timemark
+        ) {
+          percent =
+            (timemarkToSeconds(progress.timemark) / videoDurationSec) * 100;
+        }
+
+        const safePercent = Math.min(
+          100,
+          Math.max(0, Math.round(percent || 0)),
+        );
+        onProgress?.({ percent: safePercent, timemark: progress.timemark });
+      })
+      .on('end', () => {
+        logMessage('[ffmpeg helper] merge-audio done', 'info');
+        onProgress?.({ percent: 100 });
+        resolve();
+      })
+      .on('error', (err) => {
+        logMessage(`[ffmpeg helper] merge-audio error: ${err}`, 'error');
         reject(err);
       })
       .save(outputFile);

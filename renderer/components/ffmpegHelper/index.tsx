@@ -20,6 +20,7 @@ import {
   Upload,
   FolderOpen,
   Film,
+  Music2,
   Zap,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
@@ -31,6 +32,7 @@ import {
   useOutputPathPreview,
 } from './useOutputPathPreview';
 import { MergeVideosPanel } from './MergeVideosPanel';
+import { MergeAudioPanel } from './MergeAudioPanel';
 import {
   FfmpegHelperTip,
   ffmpegHelperCardClass,
@@ -59,6 +61,8 @@ export function FfmpegHelperPanel({
         return 'from-pink-600 to-rose-600 dark:from-pink-400 dark:to-rose-400';
       case 'merge-videos':
         return 'from-emerald-600 to-teal-600 dark:from-emerald-400 dark:to-teal-400';
+      case 'merge-audio':
+        return 'from-amber-600 to-orange-600 dark:from-amber-400 dark:to-orange-400';
       default:
         return 'from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400';
     }
@@ -310,6 +314,13 @@ export function FfmpegHelperPanel({
                   >
                     <FileAudio className="w-4 h-4 mr-3" />
                     {t('convertWhisper')}
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="merge-audio"
+                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all duration-300 justify-start px-5 py-3.5"
+                  >
+                    <Music2 className="w-4 h-4 mr-3" />
+                    {t('mergeAudio')}
                   </TabsTrigger>
                   <TabsTrigger
                     value="merge-videos"
@@ -631,6 +642,22 @@ export function FfmpegHelperPanel({
                         )}
                       </CardContent>
                     </Card>
+                  </TabsContent>
+
+                  <TabsContent
+                    value="merge-audio"
+                    className="mt-0 overflow-visible"
+                  >
+                    <MergeAudioPanel
+                      processing={processing}
+                      progress={progress}
+                      active={activeTab === 'merge-audio'}
+                      onComplete={onComplete}
+                      onError={onError}
+                      onProcessingChange={setProcessing}
+                      onProgressReset={() => setProgress(0)}
+                      buildOutputPath={buildOutputPath}
+                    />
                   </TabsContent>
 
                   <TabsContent
