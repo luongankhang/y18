@@ -30,6 +30,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { useTranslation } from 'next-i18next';
 // import { UpdateDialog } from './UpdateDialog';
 import { AboutDialog } from './AboutDialog';
+import { QuitConfirmDialog } from './QuitConfirmDialog';
 import packageInfo from '../../package.json';
 import { translateAppMessage } from '../lib/i18n';
 
@@ -46,6 +47,7 @@ const Layout = ({ children }) => {
   const [cudaEnabled, setCudaEnabled] = useState(false);
   const [appMode, setAppMode] = useState<'dev' | 'release' | null>(null);
   const [showAboutDialog, setShowAboutDialog] = useState(false);
+  const [showQuitDialog, setShowQuitDialog] = useState(false);
 
   useEffect(() => {
     // 监听消息通知
@@ -91,9 +93,19 @@ const Layout = ({ children }) => {
     };
     window.addEventListener('gpu-settings-changed', handleGpuSettingsChanged);
 
+    const cleanupAboutDialog = window?.ipc?.on('show-about-dialog', () => {
+      setShowAboutDialog(true);
+    });
+
+    const cleanupQuitDialog = window?.ipc?.on('show-quit-dialog', () => {
+      setShowQuitDialog(true);
+    });
+
     // 清理函数
     return () => {
       cleanupMessage?.();
+      cleanupAboutDialog?.();
+      cleanupQuitDialog?.();
       window.removeEventListener(
         'gpu-settings-changed',
         handleGpuSettingsChanged,
@@ -351,6 +363,10 @@ const Layout = ({ children }) => {
         open={showAboutDialog}
         onOpenChange={setShowAboutDialog}
         appMode={appMode}
+      />
+      <QuitConfirmDialog
+        open={showQuitDialog}
+        onOpenChange={setShowQuitDialog}
       />
     </div>
   );

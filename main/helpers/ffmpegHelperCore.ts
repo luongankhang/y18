@@ -6,6 +6,11 @@ import { spawn } from 'child_process';
 import { logMessage } from './storeManager';
 import { timemarkToSeconds } from './fileUtils';
 import { buildOutputPath, prepareUniqueOutputFile } from './outputPathUtils';
+import {
+  clearHelperCommand,
+  normalizeHelperCommandError,
+  registerHelperCommand,
+} from './ffmpegHelperTaskManager';
 
 const ffmpegPath = ffmpegStatic.replace('app.asar', 'app.asar.unpacked');
 ffmpeg.setFfmpegPath(ffmpegPath);
@@ -21,6 +26,11 @@ export interface ChangeSpeedOptions {
   inputFile: string;
   outputFile: string;
   speed: number;
+  keepAudio?: boolean;
+  videoPreset?: FfmpegEncodePreset;
+  crf?: number;
+  trimStartSec?: number;
+  trimEndSec?: number;
   onProgress?: (progress: FfmpegHelperProgress) => void;
 }
 
@@ -28,6 +38,12 @@ export interface ExtractAudioOptions {
   inputFile: string;
   outputFile: string;
   format: FfmpegHelperAudioFormat;
+  audioBitrateKbps?: number;
+  sampleRate?: number;
+  channels?: number;
+  audioTrackIndex?: number;
+  trimStartSec?: number;
+  trimEndSec?: number;
   onProgress?: (progress: FfmpegHelperProgress) => void;
 }
 
@@ -35,12 +51,20 @@ export interface ConvertWhisperOptions {
   inputFile: string;
   outputFile: string;
   sampleRate: number;
+  normalizeLoudness?: boolean;
+  highPassHz?: number;
+  removeSilence?: boolean;
   onProgress?: (progress: FfmpegHelperProgress) => void;
 }
 
 export interface MergeVideosOptions {
   inputFiles: string[];
   outputFile: string;
+  targetResolution?: FfmpegTargetResolution;
+  targetFps?: number;
+  videoPreset?: FfmpegEncodePreset;
+  crf?: number;
+  audioBitrateKbps?: number;
   onProgress?: (progress: FfmpegHelperProgress) => void;
 }
 
@@ -58,9 +82,16 @@ export interface MergeAudioToVideoOptions {
   audioOffsetSec: number;
   loopExternalAudio: boolean;
   copyVideo: boolean;
+  fadeInSec?: number;
+  fadeOutSec?: number;
+  audioBitrateKbps?: number;
+  videoPreset?: FfmpegEncodePreset;
+  crf?: number;
   onProgress?: (progress: FfmpegHelperProgress) => void;
 }
 
+export type FfmpegEncodePreset = 'ultrafast' | 'fast' | 'medium' | 'slow';
+export type FfmpegTargetResolution = '1080' | '720' | '480';
 export type FfmpegHelperVideoFormat = 'mp4' | 'mkv' | 'mov';
 
 interface MediaProbeResult {
@@ -76,6 +107,112 @@ function assertInputFile(inputFile: string): void {
 
 function prepareOutputFile(outputFile: string): string {
   return prepareUniqueOutputFile(outputFile);
+}
+
+const VALID_PRESETS: FfmpegEncodePreset[] = [
+  'ultrafast',
+  'fast',
+  'medium',
+  'slow',
+];
+
+function resolvePreset(preset?: FfmpegEncodePreset): FfmpegEncodePreset {
+  if (preset && VALID_PRESETS.includes(preset)) {
+    return preset;
+  }
+  return 'fast';
+}
+
+function resolveCrf(crf?: number): number {
+  if (!Number.isFinite(crf)) {
+    return 23;
+  }
+  return Math.min(28, Math.max(18, Math.round(crf as number)));
+}
+
+function resolveTargetResolution(res?: FfmpegTargetResolution): {
+  w: number;
+  h: number;
+} {
+  switch (res) {
+    case '720':
+      return { w: 1280, h: 720 };
+    case '480':
+      return { w: 854, h: 480 };
+    case '1080':
+    default:
+      return { w: 1920, h: 1080 };
+  }
+}
+
+function resolveTargetFps(fps?: number): number {
+  if (fps === 24 || fps === 30 || fps === 60) {
+    return fps;
+  }
+  return 30;
+}
+
+function resolveAudioBitrateKbps(bitrate?: number): number {
+  if (!Number.isFinite(bitrate)) {
+    return 192;
+  }
+  const value = Math.round(bitrate as number);
+  if (value <= 128) return 128;
+  if (value <= 192) return 192;
+  if (value <= 256) return 256;
+  return 320;
+}
+
+function applyTrimOptions(
+  command: ffmpeg.FfmpegCommand,
+  trimStartSec?: number,
+  trimEndSec?: number,
+): ffmpeg.FfmpegCommand {
+  const trimStart = Math.max(0, trimStartSec ?? 0);
+  const trimEnd = trimEndSec ?? 0;
+
+  if (trimStart > 0) {
+    command = command.setStartTime(trimStart);
+  }
+
+  if (trimEnd > 0 && trimEnd > trimStart) {
+    command = command.setDuration(trimEnd - trimStart);
+  }
+
+  return command;
+}
+
+function appendAudioFadeFilter(
+  filterComplex: string,
+  fadeInSec: number,
+  fadeOutSec: number,
+  durationSec: number,
+): { filterComplex: string; audioMap: string } {
+  const fadeIn = Math.max(0, fadeInSec);
+  const fadeOut = Math.max(0, fadeOutSec);
+
+  if (fadeIn <= 0 && fadeOut <= 0) {
+    return { filterComplex, audioMap: '[outa]' };
+  }
+
+  const fades: string[] = [];
+  if (fadeIn > 0) {
+    fades.push(`afade=t=in:st=0:d=${fadeIn}`);
+  }
+  if (fadeOut > 0 && durationSec > fadeOut) {
+    fades.push(
+      `afade=t=out:st=${Math.max(0, durationSec - fadeOut)}:d=${fadeOut}`,
+    );
+  }
+
+  if (fades.length === 0) {
+    return { filterComplex, audioMap: '[outa]' };
+  }
+
+  return {
+    filterComplex: `${filterComplex};[outa]${fades.join(',')}[outa_final]`,
+    audioMap: '[outa_final]',
+  };
 }
 
 /** Probe streams using ffmpeg -i (ffmpeg-static does not ship ffprobe). */
@@ -118,6 +255,18 @@ function runFfmpegCommand(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     let totalDurationSec = 0;
+    let settled = false;
+
+    const finish = (fn: () => void) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearHelperCommand(command);
+      fn();
+    };
+
+    registerHelperCommand(command);
 
     command
       .outputOptions('-y')
@@ -152,11 +301,11 @@ function runFfmpegCommand(
       .on('end', () => {
         logMessage(`[ffmpeg helper] ${label} done`, 'info');
         onProgress?.({ percent: 100 });
-        resolve();
+        finish(resolve);
       })
       .on('error', (err) => {
         logMessage(`[ffmpeg helper] ${label} error: ${err}`, 'error');
-        reject(err);
+        finish(() => reject(normalizeHelperCommandError(err)));
       })
       .save(outputFile);
   });
@@ -210,11 +359,26 @@ export function getAudioCodecConfig(format: FfmpegHelperAudioFormat): {
 export async function changeMediaSpeed(
   options: ChangeSpeedOptions,
 ): Promise<{ outputFile: string }> {
-  const { inputFile, speed, onProgress } = options;
+  const {
+    inputFile,
+    speed,
+    keepAudio = true,
+    videoPreset,
+    crf,
+    trimStartSec,
+    trimEndSec,
+    onProgress,
+  } = options;
   assertInputFile(inputFile);
 
   if (!Number.isFinite(speed) || speed <= 0 || speed > 4) {
     throw new Error('INVALID_SPEED');
+  }
+
+  const trimStart = Math.max(0, trimStartSec ?? 0);
+  const trimEnd = trimEndSec ?? 0;
+  if (trimEnd > 0 && trimEnd <= trimStart) {
+    throw new Error('INVALID_TRIM_RANGE');
   }
 
   const outputFile = prepareOutputFile(options.outputFile);
@@ -225,12 +389,27 @@ export async function changeMediaSpeed(
   }
 
   let command = ffmpeg(inputFile);
+  command = applyTrimOptions(command, trimStartSec, trimEndSec);
 
   if (probe.hasVideo) {
-    command = command.videoFilters(`setpts=${1 / speed}*PTS`);
+    command = command
+      .videoFilters(`setpts=${1 / speed}*PTS`)
+      .videoCodec('libx264')
+      .outputOptions([
+        '-preset',
+        resolvePreset(videoPreset),
+        '-crf',
+        String(resolveCrf(crf)),
+        '-pix_fmt',
+        'yuv420p',
+      ]);
   }
 
-  if (probe.hasAudio) {
+  if (probe.hasAudio && keepAudio) {
+    command = command.audioFilters(buildAtempoFilter(speed)).audioCodec('aac');
+  } else if (probe.hasVideo && !keepAudio) {
+    command = command.noAudio();
+  } else if (!probe.hasVideo && probe.hasAudio && keepAudio) {
     command = command.audioFilters(buildAtempoFilter(speed));
   }
 
@@ -250,8 +429,24 @@ export async function changeMediaSpeed(
 export async function extractMediaAudio(
   options: ExtractAudioOptions,
 ): Promise<{ outputFile: string }> {
-  const { inputFile, format, onProgress } = options;
+  const {
+    inputFile,
+    format,
+    audioBitrateKbps,
+    sampleRate,
+    channels,
+    audioTrackIndex,
+    trimStartSec,
+    trimEndSec,
+    onProgress,
+  } = options;
   assertInputFile(inputFile);
+
+  const trimStart = Math.max(0, trimStartSec ?? 0);
+  const trimEnd = trimEndSec ?? 0;
+  if (trimEnd > 0 && trimEnd <= trimStart) {
+    throw new Error('INVALID_TRIM_RANGE');
+  }
 
   const outputFile = prepareOutputFile(options.outputFile);
   const probe = await probeMedia(inputFile);
@@ -262,6 +457,30 @@ export async function extractMediaAudio(
 
   const { codec, format: outputFormat } = getAudioCodecConfig(format);
   let command = ffmpeg(inputFile).noVideo().audioCodec(codec);
+  command = applyTrimOptions(command, trimStartSec, trimEndSec);
+
+  const trackIndex = Math.max(0, Math.round(audioTrackIndex ?? 0));
+  if (trackIndex > 0) {
+    command = command.outputOptions('-map', `0:a:${trackIndex}`);
+  }
+
+  if (sampleRate && sampleRate > 0) {
+    command = command.audioFrequency(sampleRate);
+  }
+
+  if (channels === 1 || channels === 2) {
+    command = command.audioChannels(channels);
+  }
+
+  if (
+    audioBitrateKbps &&
+    audioBitrateKbps > 0 &&
+    (format === 'mp3' || format === 'aac' || format === 'm4a')
+  ) {
+    command = command.audioBitrate(
+      `${resolveAudioBitrateKbps(audioBitrateKbps)}k`,
+    );
+  }
 
   if (outputFormat) {
     command = command.format(outputFormat);
@@ -283,7 +502,14 @@ export async function extractMediaAudio(
 export async function convertToWhisperFormat(
   options: ConvertWhisperOptions,
 ): Promise<{ outputFile: string }> {
-  const { inputFile, sampleRate, onProgress } = options;
+  const {
+    inputFile,
+    sampleRate,
+    normalizeLoudness,
+    highPassHz,
+    removeSilence,
+    onProgress,
+  } = options;
   assertInputFile(inputFile);
 
   if (!Number.isFinite(sampleRate) || sampleRate < 8000 || sampleRate > 48000) {
@@ -297,12 +523,29 @@ export async function convertToWhisperFormat(
     throw new Error('NO_AUDIO_STREAM');
   }
 
-  const command = ffmpeg(inputFile)
+  const audioFilters: string[] = [];
+  if (normalizeLoudness) {
+    audioFilters.push('loudnorm=I=-16:TP=-1.5:LRA=11');
+  }
+  if (highPassHz && highPassHz > 0) {
+    audioFilters.push(`highpass=f=${Math.round(highPassHz)}`);
+  }
+  if (removeSilence) {
+    audioFilters.push(
+      'silenceremove=start_periods=1:start_duration=0.1:start_threshold=-50dB:stop_periods=-1:stop_duration=0.1:stop_threshold=-50dB',
+    );
+  }
+
+  let command = ffmpeg(inputFile)
     .noVideo()
     .audioCodec('pcm_s16le')
     .audioFrequency(Math.round(sampleRate))
     .audioChannels(1)
     .format('wav');
+
+  if (audioFilters.length > 0) {
+    command = command.audioFilters(audioFilters.join(','));
+  }
 
   await runFfmpegCommand(
     command,
@@ -326,10 +569,10 @@ function buildSequentialConcatFilter(
   inputCount: number,
   probes: MediaProbeResult[],
   durations: number[],
+  targetW: number,
+  targetH: number,
+  targetFps: number,
 ): string {
-  const targetW = 1920;
-  const targetH = 1080;
-  const targetFps = 30;
   const parts: string[] = [];
   const concatInputs: string[] = [];
 
@@ -396,7 +639,15 @@ function getMediaDurationSec(inputFile: string): Promise<number> {
 export async function mergeVideosInOrder(
   options: MergeVideosOptions,
 ): Promise<{ outputFile: string }> {
-  const { inputFiles, onProgress } = options;
+  const {
+    inputFiles,
+    targetResolution,
+    targetFps,
+    videoPreset,
+    crf,
+    audioBitrateKbps,
+    onProgress,
+  } = options;
 
   if (!inputFiles?.length || inputFiles.length < 2) {
     throw new Error('MERGE_REQUIRES_MIN_TWO_FILES');
@@ -415,15 +666,23 @@ export async function mergeVideosInOrder(
   const outputFile = prepareOutputFile(options.outputFile);
   const durations = await Promise.all(inputFiles.map(getMediaDurationSec));
   const totalDurationSec = durations.reduce((sum, value) => sum + value, 0);
+  const { w, h } = resolveTargetResolution(targetResolution);
+  const fps = resolveTargetFps(targetFps);
   const filterComplex = buildSequentialConcatFilter(
     inputFiles.length,
     probes,
     durations,
+    w,
+    h,
+    fps,
   );
   const outputFormat = getOutputFormatFromPath(outputFile);
+  const preset = resolvePreset(videoPreset);
+  const resolvedCrf = resolveCrf(crf);
+  const audioBitrate = resolveAudioBitrateKbps(audioBitrateKbps);
 
   logMessage(
-    `[ffmpeg helper] merge-videos order: ${inputFiles.map((f, i) => `${i + 1}:${path.basename(f)}`).join(' → ')}`,
+    `[ffmpeg helper] merge-videos order: ${inputFiles.map((f, i) => `${i + 1}:${path.basename(f)}`).join(' → ')} (${w}x${h}@${fps}fps)`,
     'info',
   );
 
@@ -432,6 +691,18 @@ export async function mergeVideosInOrder(
     for (const file of inputFiles) {
       command = command.input(file);
     }
+
+    let settled = false;
+    const finish = (fn: () => void) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearHelperCommand(command);
+      fn();
+    };
+
+    registerHelperCommand(command);
 
     command
       .outputOptions([
@@ -444,15 +715,15 @@ export async function mergeVideosInOrder(
         '-c:v',
         'libx264',
         '-preset',
-        'fast',
+        preset,
         '-crf',
-        '23',
+        String(resolvedCrf),
         '-pix_fmt',
         'yuv420p',
         '-c:a',
         'aac',
         '-b:a',
-        '192k',
+        `${audioBitrate}k`,
         '-ar',
         '48000',
         '-ac',
@@ -490,11 +761,11 @@ export async function mergeVideosInOrder(
       .on('end', () => {
         logMessage('[ffmpeg helper] merge-videos done', 'info');
         onProgress?.({ percent: 100 });
-        resolve();
+        finish(resolve);
       })
       .on('error', (err) => {
         logMessage(`[ffmpeg helper] merge-videos error: ${err}`, 'error');
-        reject(err);
+        finish(() => reject(normalizeHelperCommandError(err)));
       })
       .save(outputFile);
   });
@@ -578,6 +849,11 @@ export async function mergeAudioToVideo(
     audioOffsetSec,
     loopExternalAudio,
     copyVideo,
+    fadeInSec,
+    fadeOutSec,
+    audioBitrateKbps,
+    videoPreset,
+    crf,
     onProgress,
   } = options;
 
@@ -619,7 +895,7 @@ export async function mergeAudioToVideo(
 
   const outputFile = prepareOutputFile(options.outputFile);
   const videoDurationSec = await getMediaDurationSec(videoFile);
-  const filterComplex = buildMergeAudioFilterComplex(
+  let filterComplex = buildMergeAudioFilterComplex(
     mode,
     videoProbe.hasAudio,
     originalVolume,
@@ -628,7 +904,18 @@ export async function mergeAudioToVideo(
     videoDurationSec,
     loopExternalAudio,
   );
+  const fadeResult = appendAudioFadeFilter(
+    filterComplex,
+    fadeInSec ?? 0,
+    fadeOutSec ?? 0,
+    videoDurationSec,
+  );
+  filterComplex = fadeResult.filterComplex;
+  const audioMap = fadeResult.audioMap;
   const outputFormat = getOutputFormatFromPath(outputFile);
+  const audioBitrate = resolveAudioBitrateKbps(audioBitrateKbps);
+  const preset = resolvePreset(videoPreset);
+  const resolvedCrf = resolveCrf(crf);
 
   logMessage(
     `[ffmpeg helper] merge-audio mode=${mode} origVol=${originalVolume} extVol=${externalVolume} offset=${audioOffsetSec}s loop=${loopExternalAudio}`,
@@ -650,11 +937,11 @@ export async function mergeAudioToVideo(
       '-map',
       '0:v',
       '-map',
-      '[outa]',
+      audioMap,
       '-c:a',
       'aac',
       '-b:a',
-      '192k',
+      `${audioBitrate}k`,
       '-ar',
       '48000',
       '-ac',
@@ -671,13 +958,25 @@ export async function mergeAudioToVideo(
         '-c:v',
         'libx264',
         '-preset',
-        'fast',
+        preset,
         '-crf',
-        '23',
+        String(resolvedCrf),
         '-pix_fmt',
         'yuv420p',
       );
     }
+
+    let settled = false;
+    const finish = (fn: () => void) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearHelperCommand(command);
+      fn();
+    };
+
+    registerHelperCommand(command);
 
     command
       .outputOptions(outputOptions)
@@ -710,11 +1009,11 @@ export async function mergeAudioToVideo(
       .on('end', () => {
         logMessage('[ffmpeg helper] merge-audio done', 'info');
         onProgress?.({ percent: 100 });
-        resolve();
+        finish(resolve);
       })
       .on('error', (err) => {
         logMessage(`[ffmpeg helper] merge-audio error: ${err}`, 'error');
-        reject(err);
+        finish(() => reject(normalizeHelperCommandError(err)));
       })
       .save(outputFile);
   });

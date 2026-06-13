@@ -9,6 +9,7 @@ import {
   type FfmpegHelperAudioFormat,
 } from './ffmpegHelperCore';
 import { previewUniqueOutputPath } from './outputPathUtils';
+import { cancelActiveHelperTask } from './ffmpegHelperTaskManager';
 
 function sendHelperProgress(
   event: Electron.IpcMainInvokeEvent,
@@ -46,6 +47,12 @@ function mapHelperError(error: unknown): string {
       return 'MERGE_AUDIO_REQUIRES_VIDEO';
     case 'NO_EXTERNAL_AUDIO':
       return 'NO_EXTERNAL_AUDIO';
+    case 'INVALID_TRIM_RANGE':
+      return 'INVALID_TRIM_RANGE';
+    case 'FFMPEG_HELPER_CANCELLED':
+      return 'FFMPEG_HELPER_CANCELLED';
+    case 'NO_ACTIVE_HELPER_TASK':
+      return 'NO_ACTIVE_HELPER_TASK';
     default:
       return message || 'UNKNOWN_ERROR';
   }
@@ -103,6 +110,14 @@ export function setupFfmpegHandlers() {
     });
   });
 
+  ipcMain.handle('ffmpeg-cancel-task', async () => {
+    const cancelled = cancelActiveHelperTask();
+    if (!cancelled) {
+      throw new Error('NO_ACTIVE_HELPER_TASK');
+    }
+    return { success: true };
+  });
+
   ipcMain.handle('ffmpeg-merge-audio', async (event, options) => {
     try {
       const {
@@ -126,6 +141,11 @@ export function setupFfmpegHandlers() {
         audioOffsetSec: Number(audioOffsetSec),
         loopExternalAudio: Boolean(loopExternalAudio),
         copyVideo: copyVideo !== false,
+        fadeInSec: Number(options.fadeInSec ?? 0),
+        fadeOutSec: Number(options.fadeOutSec ?? 0),
+        audioBitrateKbps: Number(options.audioBitrateKbps ?? 192),
+        videoPreset: options.videoPreset,
+        crf: Number(options.crf ?? 23),
         onProgress: ({ percent }) => {
           sendHelperProgress(event, { task: 'merge-audio', percent });
         },
@@ -142,6 +162,11 @@ export function setupFfmpegHandlers() {
       const result = await mergeVideosInOrder({
         inputFiles,
         outputFile,
+        targetResolution: options.targetResolution,
+        targetFps: Number(options.targetFps ?? 30),
+        videoPreset: options.videoPreset,
+        crf: Number(options.crf ?? 23),
+        audioBitrateKbps: Number(options.audioBitrateKbps ?? 192),
         onProgress: ({ percent }) => {
           sendHelperProgress(event, { task: 'merge-videos', percent });
         },
@@ -159,6 +184,11 @@ export function setupFfmpegHandlers() {
         inputFile,
         outputFile,
         speed: Number(speed),
+        keepAudio: options.keepAudio !== false,
+        videoPreset: options.videoPreset,
+        crf: Number(options.crf ?? 23),
+        trimStartSec: Number(options.trimStartSec ?? 0),
+        trimEndSec: Number(options.trimEndSec ?? 0),
         onProgress: ({ percent }) => {
           sendHelperProgress(event, { task: 'change-speed', percent });
         },
@@ -176,6 +206,12 @@ export function setupFfmpegHandlers() {
         inputFile,
         outputFile,
         format: format as FfmpegHelperAudioFormat,
+        audioBitrateKbps: Number(options.audioBitrateKbps ?? 192),
+        sampleRate: Number(options.sampleRate ?? 0),
+        channels: Number(options.channels ?? 0),
+        audioTrackIndex: Number(options.audioTrackIndex ?? 0),
+        trimStartSec: Number(options.trimStartSec ?? 0),
+        trimEndSec: Number(options.trimEndSec ?? 0),
         onProgress: ({ percent }) => {
           sendHelperProgress(event, { task: 'extract-audio', percent });
         },
@@ -193,6 +229,9 @@ export function setupFfmpegHandlers() {
         inputFile,
         outputFile,
         sampleRate: Number(sampleRate),
+        normalizeLoudness: Boolean(options.normalizeLoudness),
+        highPassHz: Number(options.highPassHz ?? 0),
+        removeSilence: Boolean(options.removeSilence),
         onProgress: ({ percent }) => {
           sendHelperProgress(event, { task: 'convert-whisper', percent });
         },

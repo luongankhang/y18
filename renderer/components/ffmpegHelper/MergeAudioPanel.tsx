@@ -6,29 +6,30 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
+import { FfmpegOptionSelect } from './FfmpegOptionSelect';
+import { EncodePresetSelect, CrfQualitySelect } from './AdvancedSelectFields';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Progress } from '@/components/ui/progress';
+  FfmpegHelperProgressDisplay,
+  processingButtonLabel,
+} from './FfmpegHelperProgressDisplay';
 import {
   FfmpegHelperTip,
   ffmpegHelperCardClass,
   ffmpegHelperCardHeaderClass,
 } from './FfmpegHelperTip';
-import {
-  Music2,
-  Upload,
-  FolderOpen,
-  Zap,
-  Video,
-  FileAudio,
-} from 'lucide-react';
+import { Music2, FolderOpen, Zap, Video, FileAudio } from 'lucide-react';
 import { OutputPathPreview } from './OutputPathPreview';
 import { useOutputPathPreview } from './useOutputPathPreview';
+import { isHelperTaskCancelled } from './helperTaskError';
+import {
+  AdvancedFieldHint,
+  AdvancedOptionsSection,
+} from './AdvancedOptionsSection';
+import {
+  AUDIO_BITRATE_OPTIONS,
+  MERGE_AUDIO_MODE_OPTIONS,
+  OUTPUT_FORMAT_OPTIONS,
+} from './ffmpegSelectOptions';
 
 interface MergeAudioPanelProps {
   processing: boolean;
@@ -75,6 +76,11 @@ export function MergeAudioPanel({
   const [audioOffsetSec, setAudioOffsetSec] = useState('0');
   const [loopExternalAudio, setLoopExternalAudio] = useState(false);
   const [copyVideo, setCopyVideo] = useState(true);
+  const [fadeInSec, setFadeInSec] = useState('0');
+  const [fadeOutSec, setFadeOutSec] = useState('0');
+  const [audioBitrate, setAudioBitrate] = useState('192');
+  const [videoPreset, setVideoPreset] = useState('fast');
+  const [videoCrf, setVideoCrf] = useState('23');
 
   const mergeAudioPreview = useOutputPathPreview({
     inputFile: videoFile,
@@ -85,8 +91,6 @@ export function MergeAudioPanel({
 
   const selectTriggerClass =
     'bg-slate-50/50 dark:bg-slate-900/50 border-slate-200/50 dark:border-slate-700/50 rounded-xl focus:ring-2 focus:ring-amber-500/20';
-  const selectContentClass =
-    'bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border-slate-200/50 dark:border-slate-700/50 rounded-xl shadow-xl';
 
   const handleSelectVideo = async () => {
     try {
@@ -152,10 +156,19 @@ export function MergeAudioPanel({
         audioOffsetSec: offset,
         loopExternalAudio,
         copyVideo,
+        fadeInSec: parseFloat(fadeInSec) || 0,
+        fadeOutSec: parseFloat(fadeOutSec) || 0,
+        audioBitrateKbps: parseInt(audioBitrate, 10),
+        videoPreset,
+        crf: parseInt(videoCrf, 10),
       });
       onComplete(t('mergeAudioSuccess'));
-    } catch {
-      onError(t('mergeAudioError'));
+    } catch (error) {
+      if (isHelperTaskCancelled(error)) {
+        onComplete(t('taskCancelled'));
+      } else {
+        onError(t('mergeAudioError'));
+      }
     } finally {
       onProcessingChange(false);
       onProgressReset();
@@ -224,26 +237,14 @@ export function MergeAudioPanel({
           </div>
         </div>
 
-        <div className="space-y-3">
-          <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-            {t('mergeAudioMode')}
-          </Label>
-          <Select
-            value={mode}
-            onValueChange={(value) => setMode(value as 'mix' | 'replace')}
-            disabled={processing}
-          >
-            <SelectTrigger className={selectTriggerClass}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className={selectContentClass}>
-              <SelectItem value="mix">{t('mergeAudioModeMix')}</SelectItem>
-              <SelectItem value="replace">
-                {t('mergeAudioModeReplace')}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <FfmpegOptionSelect
+          label={t('mergeAudioMode')}
+          value={mode}
+          onValueChange={(value) => setMode(value as 'mix' | 'replace')}
+          options={MERGE_AUDIO_MODE_OPTIONS}
+          disabled={processing}
+          triggerClassName={selectTriggerClass}
+        />
 
         <div
           className={`grid gap-6 sm:grid-cols-2 ${mode === 'replace' ? 'opacity-50' : ''}`}
@@ -311,16 +312,56 @@ export function MergeAudioPanel({
               {t('audioOffsetHint')}
             </p>
           </div>
+        </div>
 
+        <AdvancedOptionsSection
+          disabled={processing}
+          accentClass="border-amber-200/60 dark:border-amber-800/60"
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>{t('fadeInSec')}</Label>
+              <Input
+                type="number"
+                min={0}
+                max={30}
+                step={0.1}
+                value={fadeInSec}
+                onChange={(e) => setFadeInSec(e.target.value)}
+                disabled={processing}
+                className="rounded-xl"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('fadeOutSec')}</Label>
+              <Input
+                type="number"
+                min={0}
+                max={30}
+                step={0.1}
+                value={fadeOutSec}
+                onChange={(e) => setFadeOutSec(e.target.value)}
+                disabled={processing}
+                className="rounded-xl"
+              />
+            </div>
+          </div>
+          <FfmpegOptionSelect
+            label={t('audioBitrate')}
+            value={audioBitrate}
+            onValueChange={setAudioBitrate}
+            options={AUDIO_BITRATE_OPTIONS}
+            disabled={processing}
+          />
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/60 bg-slate-50/50 px-4 py-3 dark:border-slate-700/60 dark:bg-slate-900/30">
               <div className="space-y-0.5">
                 <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                   {t('loopExternalAudio')}
                 </Label>
-                <p className="text-xs text-muted-foreground">
+                <AdvancedFieldHint>
                   {t('loopExternalAudioHint')}
-                </p>
+                </AdvancedFieldHint>
               </div>
               <Switch
                 checked={loopExternalAudio}
@@ -334,9 +375,9 @@ export function MergeAudioPanel({
                 <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                   {t('copyVideoStream')}
                 </Label>
-                <p className="text-xs text-muted-foreground">
+                <AdvancedFieldHint>
                   {t('copyVideoStreamHint')}
-                </p>
+                </AdvancedFieldHint>
               </div>
               <Switch
                 checked={copyVideo}
@@ -345,7 +386,23 @@ export function MergeAudioPanel({
               />
             </div>
           </div>
-        </div>
+          {!copyVideo && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <EncodePresetSelect
+                label={t('videoEncodePreset')}
+                value={videoPreset}
+                onValueChange={setVideoPreset}
+                disabled={processing}
+              />
+              <CrfQualitySelect
+                label={t('videoQualityCrf')}
+                value={videoCrf}
+                onValueChange={setVideoCrf}
+                disabled={processing}
+              />
+            </div>
+          )}
+        </AdvancedOptionsSection>
 
         <div className="space-y-3">
           <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -369,25 +426,14 @@ export function MergeAudioPanel({
           </div>
         </div>
 
-        <div className="space-y-3">
-          <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-            {t('mergeOutputFormat')}
-          </Label>
-          <Select
-            value={outputFormat}
-            onValueChange={setOutputFormat}
-            disabled={processing}
-          >
-            <SelectTrigger className={selectTriggerClass}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className={selectContentClass}>
-              <SelectItem value="mp4">MP4</SelectItem>
-              <SelectItem value="mkv">MKV</SelectItem>
-              <SelectItem value="mov">MOV</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <FfmpegOptionSelect
+          label={t('mergeOutputFormat')}
+          value={outputFormat}
+          onValueChange={setOutputFormat}
+          options={OUTPUT_FORMAT_OPTIONS}
+          disabled={processing}
+          triggerClassName={selectTriggerClass}
+        />
 
         <OutputPathPreview preview={mergeAudioPreview} />
 
@@ -397,10 +443,17 @@ export function MergeAudioPanel({
           className="w-full h-12 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 transition-all duration-300 font-semibold disabled:opacity-60"
         >
           <Zap className="w-4 h-4 mr-2" />
-          {processing ? t('processing') : t('mergeAudioProcess')}
+          {processingButtonLabel(
+            processing,
+            progress,
+            t('mergeAudioProcess'),
+            t('processing'),
+          )}
         </Button>
 
-        {processing && active && <Progress value={progress} className="h-2" />}
+        {processing && active && (
+          <FfmpegHelperProgressDisplay value={progress} />
+        )}
       </CardContent>
     </Card>
   );

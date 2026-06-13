@@ -65,5 +65,165 @@
   "mergeAudioMissingFiles": "Vui lòng chọn video, âm thanh và thư mục đầu ra",
   "invalidAudioOffset": "Lệch đồng bộ phải từ -3600 đến 3600 giây",
   "mergeAudioSuccess": "Ghép âm thanh vào video thành công",
-  "mergeAudioError": "Không thể ghép âm thanh vào video"
+  "mergeAudioError": "Không thể ghép âm thanh vào video",
+  "advancedOptions": "Tùy chọn nâng cao",
+  "keepOriginalAudio": "Giữ âm thanh gốc",
+  "videoEncodePreset": "Preset mã hóa",
+  "videoQualityCrf": "Chất lượng video (CRF)",
+  "crfHint": "Thấp hơn = chất lượng tốt hơn, file lớn hơn",
+  "trimStartSec": "Cắt từ (giây)",
+  "trimEndSec": "Cắt đến (giây)",
+  "trimEndHint": "0 = giữ đến hết file",
+  "audioBitrate": "Bitrate âm thanh",
+  "extractSampleRate": "Tần số mẫu đầu ra",
+  "keepOriginal": "Giữ nguyên",
+  "mono": "Mono",
+  "stereo": "Stereo",
+  "audioChannels": "Kênh âm thanh",
+  "audioTrackIndex": "Track âm thanh",
+  "audioTrackNumber": "Track {{n}}",
+  "normalizeLoudness": "Chuẩn hóa âm lượng",
+  "normalizeLoudnessHint": "Áp dụng loudnorm để âm lượng đồng đều",
+  "highPassFilter": "Bộ lọc high-pass",
+  "off": "Tắt",
+  "removeSilence": "Loại bỏ khoảng lặng",
+  "removeSilenceHint": "Cắt khoảng lặng đầu/cuối",
+  "targetResolution": "Độ phân giải đầu ra",
+  "resolution1080": "1080p (1920×1080)",
+  "resolution720": "720p (1280×720)",
+  "resolution480": "480p (854×480)",
+  "targetFps": "Khung hình/giây",
+  "mergeVideosAdvancedHint": "Tất cả clip được chuẩn hóa theo độ phân giải và FPS đã chọn trước khi ghép.",
+  "fadeInSec": "Fade in (giây)",
+  "fadeOutSec": "Fade out (giây)",
+  "progressLabel": "Tiến trình",
+  "progressPercent": "{{percent}}%",
+  "cancelProcessing": "Hủy xử lý",
+  "cancelProcessingTitle": "Dừng tác vụ hiện tại?",
+  "cancelProcessingDesc": "Tiến trình FFmpeg đang chạy sẽ bị dừng ngay. File đầu ra có thể còn dở trên đĩa.",
+  "confirmCancel": "Dừng tác vụ",
+  "keepProcessing": "Tiếp tục",
+  "taskCancelled": "Đã hủy xử lý",
+  "cancelTaskError": "Không thể hủy — không có tác vụ đang chạy",
+  "encodePreset": {
+    "ultrafast": {
+      "name": "Ultrafast",
+      "desc": "Mã hóa nhanh nhất, nén kém nhất, file lớn hơn"
+    },
+    "fast": {
+      "name": "Fast",
+      "desc": "Cân bằng tốc độ/chất lượng — khuyên dùng cho hầu hết tác vụ"
+    },
+    "medium": {
+      "name": "Medium",
+      "desc": "Mã hóa chậm hơn, nén tốt hơn và chất lượng cao hơn"
+    },
+    "slow": {
+      "name": "Slow",
+      "desc": "Mã hóa chậm nhất, nén tốt nhất và chất lượng cao nhất"
+    }
+  },
+  "crfQuality": {
+    "18": {
+      "name": "18 — Xuất sắc",
+      "desc": "Gần như không mất chất lượng, file lớn nhất"
+    },
+    "20": {
+      "name": "20 — Cao",
+      "desc": "Chất lượng cao, file nhỏ hơn vừa phải"
+    },
+    "23": {
+      "name": "23 — Cân bằng",
+      "desc": "Cân bằng mặc định giữa chất lượng và dung lượng"
+    },
+    "26": {
+      "name": "26 — Gọn",
+      "desc": "File nhỏ hơn, nén thấy rõ khi xem kỹ"
+    },
+    "28": {
+      "name": "28 — Nhỏ",
+      "desc": "File nhỏ nhất, giảm chất lượng rõ hơn"
+    }
+  },
+  "speedTierDesc": "Tốc độ phát {{speed}}x",
+  "speedFineDesc": "Tinh chỉnh tốc độ {{speed}}x",
+  "audioFormatOption": {
+    "wav": {
+      "name": "WAV",
+      "desc": "PCM không nén, chất lượng tốt nhất, file lớn"
+    },
+    "mp3": { "name": "MP3", "desc": "Nén phổ biến, tương thích rộng" },
+    "aac": {
+      "name": "AAC",
+      "desc": "Nén hiện đại, cân bằng chất lượng/kích thước"
+    },
+    "flac": { "name": "FLAC", "desc": "Nén không mất dữ liệu, file lớn" },
+    "m4a": { "name": "M4A", "desc": "AAC trong container MP4, phù hợp Apple" }
+  },
+  "audioBitrateOption": {
+    "128": { "name": "128 kbps", "desc": "File nhỏ hơn, phù hợp giọng nói" },
+    "192": {
+      "name": "192 kbps",
+      "desc": "Cân bằng chất lượng/kích thước — khuyên dùng"
+    },
+    "256": {
+      "name": "256 kbps",
+      "desc": "Chất lượng cao hơn cho nhạc/âm thanh"
+    },
+    "320": {
+      "name": "320 kbps",
+      "desc": "Chất lượng tối đa cho định dạng lossy"
+    }
+  },
+  "extractSampleRateOption": {
+    "0": { "name": "Giữ nguyên", "desc": "Không chuyển đổi tần số mẫu" },
+    "44100": { "name": "44.1 kHz", "desc": "Tần số mẫu chất lượng CD" },
+    "48000": { "name": "48 kHz", "desc": "Chuẩn sản xuất video/âm thanh" }
+  },
+  "channelOption": {
+    "0": { "name": "Giữ nguyên", "desc": "Giữ layout kênh của file gốc" },
+    "1": { "name": "Mono", "desc": "Đầu ra một kênh" },
+    "2": { "name": "Stereo", "desc": "Đầu ra hai kênh" }
+  },
+  "audioTrackOption": {
+    "0": { "name": "Track 1", "desc": "Luồng âm thanh đầu tiên trong file" },
+    "1": { "name": "Track 2", "desc": "Luồng âm thanh thứ hai trong file" },
+    "2": { "name": "Track 3", "desc": "Luồng âm thanh thứ ba trong file" },
+    "3": { "name": "Track 4", "desc": "Luồng âm thanh thứ tư trong file" }
+  },
+  "whisperSampleRateOption": {
+    "8000": {
+      "name": "8 kHz",
+      "desc": "Chất lượng điện thoại, input Whisper nhỏ nhất"
+    },
+    "16000": { "name": "16 kHz", "desc": "Mặc định Whisper — khuyên dùng" },
+    "22050": { "name": "22.05 kHz", "desc": "Nhạc/giọng chất lượng thấp" },
+    "44100": { "name": "44.1 kHz", "desc": "Input chất lượng CD" },
+    "48000": { "name": "48 kHz", "desc": "Tần số studio/sản xuất video" }
+  },
+  "highPassOption": {
+    "0": { "name": "Tắt", "desc": "Không lọc high-pass" },
+    "80": { "name": "80 Hz", "desc": "Loại tiếng ù ù tần số thấp" },
+    "100": { "name": "100 Hz", "desc": "Cắt tần số thấp mạnh hơn" },
+    "120": { "name": "120 Hz", "desc": "Loại ù mạnh, phù hợp giọng nói" }
+  },
+  "resolutionOption": {
+    "1080": { "name": "1080p", "desc": "1920×1080 Full HD" },
+    "720": { "name": "720p", "desc": "1280×720 HD, file nhỏ hơn" },
+    "480": { "name": "480p", "desc": "854×480 SD, output nhỏ nhất" }
+  },
+  "fpsOption": {
+    "24": { "name": "24 fps", "desc": "Khung hình điện ảnh" },
+    "30": { "name": "30 fps", "desc": "Chuẩn web/video" },
+    "60": { "name": "60 fps", "desc": "Chuyển động mượt, file lớn hơn" }
+  },
+  "outputFormatOption": {
+    "mp4": { "name": "MP4", "desc": "Container tương thích nhất" },
+    "mkv": { "name": "MKV", "desc": "Container mở linh hoạt" },
+    "mov": { "name": "MOV", "desc": "Phù hợp Apple/QuickTime" }
+  },
+  "mergeAudioModeOption": {
+    "mix": { "name": "Trộn", "desc": "Pha âm thanh gốc và âm thanh ngoài" },
+    "replace": { "name": "Thay thế", "desc": "Chỉ dùng âm thanh ngoài" }
+  }
 }

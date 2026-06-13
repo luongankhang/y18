@@ -1,13 +1,11 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'next-i18next';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectTrigger } from '@/components/ui/select';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  DescribedSelectItem,
+  FfmpegSelectTriggerValue,
+} from './FfmpegOptionSelect';
 
 const SPEED_MIN = 0.5;
 const SPEED_MAX = 2.0;
@@ -75,14 +73,24 @@ export function SpeedSelector({
             disabled={disabled}
           >
             <SelectTrigger className={selectTriggerClass}>
-              <SelectValue />
+              <FfmpegSelectTriggerValue
+                name={`${parseFloat(tier).toFixed(1)}x`}
+              />
             </SelectTrigger>
             <SelectContent className={selectContentClass}>
-              {SPEED_TIERS.map((value) => (
-                <SelectItem key={value} value={value}>
-                  {parseFloat(value).toFixed(1)}x
-                </SelectItem>
-              ))}
+              {SPEED_TIERS.map((value) => {
+                const label = `${parseFloat(value).toFixed(1)}x`;
+                return (
+                  <DescribedSelectItem
+                    key={value}
+                    value={value}
+                    name={label}
+                    description={t('speedTierDesc', {
+                      speed: parseFloat(value).toFixed(1),
+                    })}
+                  />
+                );
+              })}
             </SelectContent>
           </Select>
         </div>
@@ -93,15 +101,18 @@ export function SpeedSelector({
           </Label>
           <Select value={fine} onValueChange={onFineChange} disabled={disabled}>
             <SelectTrigger className={selectTriggerClass}>
-              <SelectValue />
+              <FfmpegSelectTriggerValue name={`${combineSpeed(tier, fine)}x`} />
             </SelectTrigger>
             <SelectContent className={selectContentClass}>
               {fineOptions.map((option) => {
                 const label = combineSpeed(tier, option);
                 return (
-                  <SelectItem key={option} value={option}>
-                    {label}x
-                  </SelectItem>
+                  <DescribedSelectItem
+                    key={option}
+                    value={option}
+                    name={`${label}x`}
+                    description={t('speedFineDesc', { speed: label })}
+                  />
                 );
               })}
             </SelectContent>

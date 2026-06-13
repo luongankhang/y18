@@ -176,6 +176,12 @@
     "disclaimer": "Thông tin hiển thị chỉ mang tính trình bày. y18 xây dựng trên Electron + Next.js; engine giọng nói từ whisper.cpp.",
     "copyright": "© {{year}} y18. Fork từ SmartSub."
   },
+  "quit": {
+    "windowTitle": "y18",
+    "message": "Bạn có chắc chắn muốn thoát?",
+    "confirm": "Thoát",
+    "cancel": "Hủy"
+  },
   "unknownError": "Lỗi không xác định",
   "progressLabel": "Tiến độ: {{progress}}%",
   "previewSampleText": "Đây là xem trước phụ đề\nDòng phụ đề mẫu",

@@ -1,0 +1,9 @@
+export const ENCODE_PRESETS = ['ultrafast', 'fast', 'medium', 'slow'] as const;
+export const CRF_VALUES = ['18', '20', '23', '26', '28'] as const;
+export const AUDIO_BITRATES = ['128', '192', '256', '320'] as const;
+export const SAMPLE_RATES = ['0', '44100', '48000'] as const;
+export const CHANNEL_OPTIONS = ['0', '1', '2'] as const;
+export const RESOLUTION_OPTIONS = ['1080', '720', '480'] as const;
+export const FPS_OPTIONS = ['24', '30', '60'] as const;
+export const HIGH_PASS_OPTIONS = ['0', '80', '100', '120'] as const;
+export const AUDIO_TRACK_OPTIONS = ['0', '1', '2', '3'] as const;

@@ -65,5 +65,162 @@
   "mergeAudioMissingFiles": "Please select video, audio, and output folder",
   "invalidAudioOffset": "Audio offset must be between -3600 and 3600 seconds",
   "mergeAudioSuccess": "Audio merged into video successfully",
-  "mergeAudioError": "Failed to merge audio into video"
+  "mergeAudioError": "Failed to merge audio into video",
+  "advancedOptions": "Advanced options",
+  "keepOriginalAudio": "Keep original audio",
+  "videoEncodePreset": "Encoding preset",
+  "videoQualityCrf": "Video quality (CRF)",
+  "crfHint": "Lower = better quality, larger file",
+  "trimStartSec": "Trim start (seconds)",
+  "trimEndSec": "Trim end (seconds)",
+  "trimEndHint": "0 = keep until end of file",
+  "audioBitrate": "Audio bitrate",
+  "extractSampleRate": "Output sample rate",
+  "keepOriginal": "Keep original",
+  "mono": "Mono",
+  "stereo": "Stereo",
+  "audioChannels": "Channels",
+  "audioTrackIndex": "Audio track",
+  "audioTrackNumber": "Track {{n}}",
+  "normalizeLoudness": "Normalize loudness",
+  "normalizeLoudnessHint": "Apply loudnorm for consistent volume",
+  "highPassFilter": "High-pass filter",
+  "off": "Off",
+  "removeSilence": "Remove silence",
+  "removeSilenceHint": "Trim leading/trailing silence",
+  "targetResolution": "Output resolution",
+  "resolution1080": "1080p (1920×1080)",
+  "resolution720": "720p (1280×720)",
+  "resolution480": "480p (854×480)",
+  "targetFps": "Frame rate",
+  "mergeVideosAdvancedHint": "All clips are normalized to the selected resolution and frame rate before concat.",
+  "fadeInSec": "Fade in (seconds)",
+  "fadeOutSec": "Fade out (seconds)",
+  "progressLabel": "Progress",
+  "progressPercent": "{{percent}}%",
+  "cancelProcessing": "Cancel processing",
+  "cancelProcessingTitle": "Stop current task?",
+  "cancelProcessingDesc": "The running FFmpeg task will be terminated immediately. Partial output files may remain on disk.",
+  "confirmCancel": "Stop task",
+  "keepProcessing": "Continue",
+  "taskCancelled": "Processing cancelled",
+  "cancelTaskError": "Unable to cancel — no active task found",
+  "encodePreset": {
+    "ultrafast": {
+      "name": "Ultrafast",
+      "desc": "Fastest encoding, lowest compression efficiency, larger file"
+    },
+    "fast": {
+      "name": "Fast",
+      "desc": "Good speed/quality balance — recommended for most tasks"
+    },
+    "medium": {
+      "name": "Medium",
+      "desc": "Slower encoding, better compression and quality"
+    },
+    "slow": {
+      "name": "Slow",
+      "desc": "Slowest encoding, best compression efficiency and quality"
+    }
+  },
+  "crfQuality": {
+    "18": {
+      "name": "18 — Excellent",
+      "desc": "Near lossless quality, largest file size"
+    },
+    "20": {
+      "name": "20 — High",
+      "desc": "High quality with a moderately smaller file"
+    },
+    "23": {
+      "name": "23 — Balanced",
+      "desc": "Default balance of quality and file size"
+    },
+    "26": {
+      "name": "26 — Compact",
+      "desc": "Smaller file, visible compression on close inspection"
+    },
+    "28": {
+      "name": "28 — Small",
+      "desc": "Smallest file, more noticeable quality loss"
+    }
+  },
+  "speedTierDesc": "Playback speed at {{speed}}x",
+  "speedFineDesc": "Fine-tuned speed {{speed}}x",
+  "audioFormatOption": {
+    "wav": {
+      "name": "WAV",
+      "desc": "Uncompressed PCM, best quality, largest file"
+    },
+    "mp3": { "name": "MP3", "desc": "Compressed, widely compatible" },
+    "aac": {
+      "name": "AAC",
+      "desc": "Modern compressed audio, good quality/size balance"
+    },
+    "flac": { "name": "FLAC", "desc": "Lossless compression, large file" },
+    "m4a": { "name": "M4A", "desc": "AAC in MP4 container, Apple-friendly" }
+  },
+  "audioBitrateOption": {
+    "128": {
+      "name": "128 kbps",
+      "desc": "Smaller file, acceptable for speech"
+    },
+    "192": {
+      "name": "192 kbps",
+      "desc": "Balanced quality and size — recommended"
+    },
+    "256": { "name": "256 kbps", "desc": "Higher quality music/audio" },
+    "320": { "name": "320 kbps", "desc": "Maximum quality for lossy formats" }
+  },
+  "extractSampleRateOption": {
+    "0": { "name": "Keep original", "desc": "No sample-rate conversion" },
+    "44100": { "name": "44.1 kHz", "desc": "CD-quality sample rate" },
+    "48000": { "name": "48 kHz", "desc": "Standard for video/audio production" }
+  },
+  "channelOption": {
+    "0": { "name": "Keep original", "desc": "Preserve source channel layout" },
+    "1": { "name": "Mono", "desc": "Single channel output" },
+    "2": { "name": "Stereo", "desc": "Two-channel output" }
+  },
+  "audioTrackOption": {
+    "0": { "name": "Track 1", "desc": "First audio stream in file" },
+    "1": { "name": "Track 2", "desc": "Second audio stream in file" },
+    "2": { "name": "Track 3", "desc": "Third audio stream in file" },
+    "3": { "name": "Track 4", "desc": "Fourth audio stream in file" }
+  },
+  "whisperSampleRateOption": {
+    "8000": {
+      "name": "8 kHz",
+      "desc": "Telephone-quality, smallest Whisper input"
+    },
+    "16000": { "name": "16 kHz", "desc": "Whisper default — recommended" },
+    "22050": { "name": "22.05 kHz", "desc": "Low-quality music/speech" },
+    "44100": { "name": "44.1 kHz", "desc": "CD-quality input" },
+    "48000": { "name": "48 kHz", "desc": "Studio/video production rate" }
+  },
+  "highPassOption": {
+    "0": { "name": "Off", "desc": "No high-pass filtering" },
+    "80": { "name": "80 Hz", "desc": "Remove low rumble and noise" },
+    "100": { "name": "100 Hz", "desc": "Stronger low-frequency cut" },
+    "120": { "name": "120 Hz", "desc": "Aggressive rumble removal" }
+  },
+  "resolutionOption": {
+    "1080": { "name": "1080p", "desc": "1920×1080 Full HD" },
+    "720": { "name": "720p", "desc": "1280×720 HD, smaller file" },
+    "480": { "name": "480p", "desc": "854×480 SD, smallest output" }
+  },
+  "fpsOption": {
+    "24": { "name": "24 fps", "desc": "Cinematic frame rate" },
+    "30": { "name": "30 fps", "desc": "Standard web/video rate" },
+    "60": { "name": "60 fps", "desc": "Smooth motion, larger file" }
+  },
+  "outputFormatOption": {
+    "mp4": { "name": "MP4", "desc": "Most compatible container" },
+    "mkv": { "name": "MKV", "desc": "Flexible open container" },
+    "mov": { "name": "MOV", "desc": "Apple/QuickTime friendly" }
+  },
+  "mergeAudioModeOption": {
+    "mix": { "name": "Mix", "desc": "Blend original and external audio" },
+    "replace": { "name": "Replace", "desc": "Use external audio only" }
+  }
 }

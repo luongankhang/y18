@@ -176,6 +176,12 @@
     "disclaimer": "Display info is for presentation purposes. y18 is built on Electron + Next.js; upstream speech engine powered by whisper.cpp.",
     "copyright": "© {{year}} y18. Forked from SmartSub."
   },
+  "quit": {
+    "windowTitle": "y18",
+    "message": "Are you sure you want to quit?",
+    "confirm": "Quit",
+    "cancel": "Cancel"
+  },
   "unknownError": "Unknown error",
   "progressLabel": "Progress: {{progress}}%",
   "previewSampleText": "This is subtitle preview\nSample subtitle line",

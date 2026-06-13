@@ -5,13 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   Gauge,
@@ -25,14 +18,36 @@ import {
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
 import { SpeedSelector, combineSpeed } from './SpeedSelector';
 import { OutputPathPreview } from './OutputPathPreview';
+import {
+  AdvancedFieldHint,
+  AdvancedOptionsSection,
+} from './AdvancedOptionsSection';
+import { FfmpegOptionSelect } from './FfmpegOptionSelect';
+import {
+  FfmpegHelperProgressDisplay,
+  processingButtonLabel,
+} from './FfmpegHelperProgressDisplay';
+import {
+  AUDIO_BITRATE_OPTIONS,
+  AUDIO_FORMAT_OPTIONS,
+  AUDIO_TRACK_OPTIONS_LIST,
+  CHANNEL_OPTIONS_LIST,
+  EXTRACT_SAMPLE_RATE_OPTIONS,
+  HIGH_PASS_OPTIONS_LIST,
+  WHISPER_SAMPLE_RATE_OPTIONS,
+} from './ffmpegSelectOptions';
+import { EncodePresetSelect, CrfQualitySelect } from './AdvancedSelectFields';
 import {
   getInputExtension,
   useOutputPathPreview,
 } from './useOutputPathPreview';
 import { MergeVideosPanel } from './MergeVideosPanel';
 import { MergeAudioPanel } from './MergeAudioPanel';
+import { FfmpegHelperCancelProcessing } from './FfmpegHelperCancelProcessing';
+import { isHelperTaskCancelled } from './helperTaskError';
 import {
   FfmpegHelperTip,
   ffmpegHelperCardClass,
@@ -85,6 +100,23 @@ export function FfmpegHelperPanel({
   const [whisperSampleRate, setWhisperSampleRate] = useState('16000');
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+
+  const [speedKeepAudio, setSpeedKeepAudio] = useState(true);
+  const [speedPreset, setSpeedPreset] = useState('fast');
+  const [speedCrf, setSpeedCrf] = useState('23');
+  const [speedTrimStart, setSpeedTrimStart] = useState('0');
+  const [speedTrimEnd, setSpeedTrimEnd] = useState('0');
+
+  const [extractBitrate, setExtractBitrate] = useState('192');
+  const [extractSampleRate, setExtractSampleRate] = useState('0');
+  const [extractChannels, setExtractChannels] = useState('0');
+  const [extractTrack, setExtractTrack] = useState('0');
+  const [extractTrimStart, setExtractTrimStart] = useState('0');
+  const [extractTrimEnd, setExtractTrimEnd] = useState('0');
+
+  const [whisperNormalize, setWhisperNormalize] = useState(false);
+  const [whisperHighPass, setWhisperHighPass] = useState('0');
+  const [whisperRemoveSilence, setWhisperRemoveSilence] = useState(false);
 
   const speedSuffix = `_speed_${combineSpeed(speedTier, speedFine)}`;
   const speedExtension = getInputExtension(speedInputFile) || '.mp4';
@@ -181,6 +213,17 @@ export function FfmpegHelperPanel({
     }
   };
 
+  const handleHelperTaskFailure = useCallback(
+    (error: unknown, errorMessageKey: string) => {
+      if (isHelperTaskCancelled(error)) {
+        onComplete(t('taskCancelled'));
+        return;
+      }
+      onError(t(errorMessageKey));
+    },
+    [onComplete, onError, t],
+  );
+
   const handleChangeSpeed = async () => {
     if (!speedInputFile || !speedOutputFolder) {
       onError(t('missingFiles'));
@@ -203,10 +246,15 @@ export function FfmpegHelperPanel({
         inputFile: speedInputFile,
         outputFile,
         speed: parseFloat(speedValue),
+        keepAudio: speedKeepAudio,
+        videoPreset: speedPreset,
+        crf: parseInt(speedCrf, 10),
+        trimStartSec: parseFloat(speedTrimStart) || 0,
+        trimEndSec: parseFloat(speedTrimEnd) || 0,
       });
       onComplete(t('changeSpeedSuccess'));
     } catch (error) {
-      onError(t('changeSpeedError'));
+      handleHelperTaskFailure(error, 'changeSpeedError');
     } finally {
       setProcessing(false);
       setProgress(0);
@@ -232,10 +280,16 @@ export function FfmpegHelperPanel({
         inputFile: audioInputFile,
         outputFile,
         format: audioFormat,
+        audioBitrateKbps: parseInt(extractBitrate, 10),
+        sampleRate: parseInt(extractSampleRate, 10),
+        channels: parseInt(extractChannels, 10),
+        audioTrackIndex: parseInt(extractTrack, 10),
+        trimStartSec: parseFloat(extractTrimStart) || 0,
+        trimEndSec: parseFloat(extractTrimEnd) || 0,
       });
       onComplete(t('extractAudioSuccess'));
     } catch (error) {
-      onError(t('extractAudioError'));
+      handleHelperTaskFailure(error, 'extractAudioError');
     } finally {
       setProcessing(false);
       setProgress(0);
@@ -261,10 +315,13 @@ export function FfmpegHelperPanel({
         inputFile: whisperInputFile,
         outputFile,
         sampleRate: parseInt(whisperSampleRate),
+        normalizeLoudness: whisperNormalize,
+        highPassHz: parseInt(whisperHighPass, 10),
+        removeSilence: whisperRemoveSilence,
       });
       onComplete(t('convertWhisperSuccess'));
     } catch (error) {
-      onError(t('convertWhisperError'));
+      handleHelperTaskFailure(error, 'convertWhisperError');
     } finally {
       setProcessing(false);
       setProgress(0);
@@ -411,6 +468,70 @@ export function FfmpegHelperPanel({
                           disabled={processing}
                         />
 
+                        <AdvancedOptionsSection
+                          disabled={processing}
+                          accentClass="border-blue-200/60 dark:border-blue-800/60"
+                        >
+                          <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/60 bg-slate-50/50 px-4 py-3 dark:border-slate-700/60 dark:bg-slate-900/30">
+                            <Label className="text-sm font-semibold">
+                              {t('keepOriginalAudio')}
+                            </Label>
+                            <Switch
+                              checked={speedKeepAudio}
+                              onCheckedChange={setSpeedKeepAudio}
+                              disabled={processing}
+                            />
+                          </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <EncodePresetSelect
+                              label={t('videoEncodePreset')}
+                              value={speedPreset}
+                              onValueChange={setSpeedPreset}
+                              disabled={processing}
+                            />
+                            <CrfQualitySelect
+                              label={t('videoQualityCrf')}
+                              value={speedCrf}
+                              onValueChange={setSpeedCrf}
+                              disabled={processing}
+                              hint={t('crfHint')}
+                            />
+                          </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label>{t('trimStartSec')}</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                step={0.1}
+                                value={speedTrimStart}
+                                onChange={(e) =>
+                                  setSpeedTrimStart(e.target.value)
+                                }
+                                disabled={processing}
+                                className="rounded-xl"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>{t('trimEndSec')}</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                step={0.1}
+                                value={speedTrimEnd}
+                                onChange={(e) =>
+                                  setSpeedTrimEnd(e.target.value)
+                                }
+                                disabled={processing}
+                                className="rounded-xl"
+                              />
+                              <AdvancedFieldHint>
+                                {t('trimEndHint')}
+                              </AdvancedFieldHint>
+                            </div>
+                          </div>
+                        </AdvancedOptionsSection>
+
                         <OutputPathPreview preview={speedOutputPreview} />
 
                         <Button
@@ -419,10 +540,15 @@ export function FfmpegHelperPanel({
                           className="w-full h-12 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-300 font-semibold disabled:opacity-60"
                         >
                           <Zap className="w-4 h-4 mr-2" />
-                          {processing ? t('processing') : t('process')}
+                          {processingButtonLabel(
+                            processing,
+                            progress,
+                            t('process'),
+                            t('processing'),
+                          )}
                         </Button>
                         {processing && activeTab === 'change-speed' && (
-                          <Progress value={progress} className="h-2" />
+                          <FfmpegHelperProgressDisplay value={progress} />
                         )}
                       </CardContent>
                     </Card>
@@ -498,26 +624,82 @@ export function FfmpegHelperPanel({
                           </div>
                         </div>
 
-                        <div className="space-y-3">
-                          <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                            {t('audioFormat')}
-                          </Label>
-                          <Select
-                            value={audioFormat}
-                            onValueChange={setAudioFormat}
-                          >
-                            <SelectTrigger className="bg-slate-50/50 dark:bg-slate-900/50 border-slate-200/50 dark:border-slate-700/50 rounded-xl focus:ring-2 focus:ring-purple-500/20">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border-slate-200/50 dark:border-slate-700/50 rounded-xl shadow-xl">
-                              <SelectItem value="wav">WAV</SelectItem>
-                              <SelectItem value="mp3">MP3</SelectItem>
-                              <SelectItem value="aac">AAC</SelectItem>
-                              <SelectItem value="flac">FLAC</SelectItem>
-                              <SelectItem value="m4a">M4A</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        <FfmpegOptionSelect
+                          label={t('audioFormat')}
+                          value={audioFormat}
+                          onValueChange={setAudioFormat}
+                          options={AUDIO_FORMAT_OPTIONS}
+                          disabled={processing}
+                          triggerClassName="bg-slate-50/50 dark:bg-slate-900/50 border-slate-200/50 dark:border-slate-700/50 rounded-xl focus:ring-2 focus:ring-purple-500/20"
+                        />
+
+                        <AdvancedOptionsSection
+                          disabled={processing}
+                          accentClass="border-purple-200/60 dark:border-purple-800/60"
+                        >
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <FfmpegOptionSelect
+                              label={t('audioBitrate')}
+                              value={extractBitrate}
+                              onValueChange={setExtractBitrate}
+                              options={AUDIO_BITRATE_OPTIONS}
+                              disabled={processing}
+                            />
+                            <FfmpegOptionSelect
+                              label={t('extractSampleRate')}
+                              value={extractSampleRate}
+                              onValueChange={setExtractSampleRate}
+                              options={EXTRACT_SAMPLE_RATE_OPTIONS}
+                              disabled={processing}
+                            />
+                          </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <FfmpegOptionSelect
+                              label={t('audioChannels')}
+                              value={extractChannels}
+                              onValueChange={setExtractChannels}
+                              options={CHANNEL_OPTIONS_LIST}
+                              disabled={processing}
+                            />
+                            <FfmpegOptionSelect
+                              label={t('audioTrackIndex')}
+                              value={extractTrack}
+                              onValueChange={setExtractTrack}
+                              options={AUDIO_TRACK_OPTIONS_LIST}
+                              disabled={processing}
+                            />
+                          </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label>{t('trimStartSec')}</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                step={0.1}
+                                value={extractTrimStart}
+                                onChange={(e) =>
+                                  setExtractTrimStart(e.target.value)
+                                }
+                                disabled={processing}
+                                className="rounded-xl"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>{t('trimEndSec')}</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                step={0.1}
+                                value={extractTrimEnd}
+                                onChange={(e) =>
+                                  setExtractTrimEnd(e.target.value)
+                                }
+                                disabled={processing}
+                                className="rounded-xl"
+                              />
+                            </div>
+                          </div>
+                        </AdvancedOptionsSection>
 
                         <OutputPathPreview preview={audioOutputPreview} />
 
@@ -527,10 +709,15 @@ export function FfmpegHelperPanel({
                           className="w-full h-12 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-xl shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition-all duration-300 font-semibold disabled:opacity-60"
                         >
                           <Zap className="w-4 h-4 mr-2" />
-                          {processing ? t('processing') : t('process')}
+                          {processingButtonLabel(
+                            processing,
+                            progress,
+                            t('process'),
+                            t('processing'),
+                          )}
                         </Button>
                         {processing && activeTab === 'extract-audio' && (
-                          <Progress value={progress} className="h-2" />
+                          <FfmpegHelperProgressDisplay value={progress} />
                         )}
                       </CardContent>
                     </Card>
@@ -606,26 +793,59 @@ export function FfmpegHelperPanel({
                           </div>
                         </div>
 
-                        <div className="space-y-3">
-                          <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                            {t('sampleRate')}
-                          </Label>
-                          <Select
-                            value={whisperSampleRate}
-                            onValueChange={setWhisperSampleRate}
-                          >
-                            <SelectTrigger className="bg-slate-50/50 dark:bg-slate-900/50 border-slate-200/50 dark:border-slate-700/50 rounded-xl focus:ring-2 focus:ring-pink-500/20">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border-slate-200/50 dark:border-slate-700/50 rounded-xl shadow-xl">
-                              <SelectItem value="8000">8000 Hz</SelectItem>
-                              <SelectItem value="16000">16000 Hz</SelectItem>
-                              <SelectItem value="22050">22050 Hz</SelectItem>
-                              <SelectItem value="44100">44100 Hz</SelectItem>
-                              <SelectItem value="48000">48000 Hz</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        <FfmpegOptionSelect
+                          label={t('sampleRate')}
+                          value={whisperSampleRate}
+                          onValueChange={setWhisperSampleRate}
+                          options={WHISPER_SAMPLE_RATE_OPTIONS}
+                          disabled={processing}
+                          triggerClassName="bg-slate-50/50 dark:bg-slate-900/50 border-slate-200/50 dark:border-slate-700/50 rounded-xl focus:ring-2 focus:ring-pink-500/20"
+                        />
+
+                        <AdvancedOptionsSection
+                          disabled={processing}
+                          accentClass="border-pink-200/60 dark:border-pink-800/60"
+                        >
+                          <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/60 bg-slate-50/50 px-4 py-3 dark:border-slate-700/60 dark:bg-slate-900/30">
+                            <div className="space-y-0.5">
+                              <Label className="text-sm font-semibold">
+                                {t('normalizeLoudness')}
+                              </Label>
+                              <AdvancedFieldHint>
+                                {t('normalizeLoudnessHint')}
+                              </AdvancedFieldHint>
+                            </div>
+                            <Switch
+                              checked={whisperNormalize}
+                              onCheckedChange={setWhisperNormalize}
+                              disabled={processing}
+                            />
+                          </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <FfmpegOptionSelect
+                              label={t('highPassFilter')}
+                              value={whisperHighPass}
+                              onValueChange={setWhisperHighPass}
+                              options={HIGH_PASS_OPTIONS_LIST}
+                              disabled={processing}
+                            />
+                            <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/60 bg-slate-50/50 px-4 py-3 dark:border-slate-700/60 dark:bg-slate-900/30">
+                              <div className="space-y-0.5">
+                                <Label className="text-sm font-semibold">
+                                  {t('removeSilence')}
+                                </Label>
+                                <AdvancedFieldHint>
+                                  {t('removeSilenceHint')}
+                                </AdvancedFieldHint>
+                              </div>
+                              <Switch
+                                checked={whisperRemoveSilence}
+                                onCheckedChange={setWhisperRemoveSilence}
+                                disabled={processing}
+                              />
+                            </div>
+                          </div>
+                        </AdvancedOptionsSection>
 
                         <OutputPathPreview preview={whisperOutputPreview} />
 
@@ -635,10 +855,15 @@ export function FfmpegHelperPanel({
                           className="w-full h-12 bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white rounded-xl shadow-lg shadow-pink-500/25 hover:shadow-pink-500/40 transition-all duration-300 font-semibold disabled:opacity-60"
                         >
                           <Zap className="w-4 h-4 mr-2" />
-                          {processing ? t('processing') : t('process')}
+                          {processingButtonLabel(
+                            processing,
+                            progress,
+                            t('process'),
+                            t('processing'),
+                          )}
                         </Button>
                         {processing && activeTab === 'convert-whisper' && (
-                          <Progress value={progress} className="h-2" />
+                          <FfmpegHelperProgressDisplay value={progress} />
                         )}
                       </CardContent>
                     </Card>
@@ -681,6 +906,11 @@ export function FfmpegHelperPanel({
           </Tabs>
         </div>
       </div>
+      <FfmpegHelperCancelProcessing
+        processing={processing}
+        progress={progress}
+        onCancelFailed={() => onError(t('cancelTaskError'))}
+      />
     </TooltipProvider>
   );
 }

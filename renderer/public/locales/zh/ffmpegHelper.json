@@ -65,5 +65,147 @@
   "mergeAudioMissingFiles": "请选择视频、音频和输出文件夹",
   "invalidAudioOffset": "同步偏移须在 -3600 至 3600 秒之间",
   "mergeAudioSuccess": "音频合并到视频成功",
-  "mergeAudioError": "音频合并到视频失败"
+  "mergeAudioError": "音频合并到视频失败",
+  "advancedOptions": "高级选项",
+  "keepOriginalAudio": "保留原音频",
+  "videoEncodePreset": "编码预设",
+  "videoQualityCrf": "视频质量 (CRF)",
+  "crfHint": "数值越低质量越好，文件越大",
+  "trimStartSec": "裁剪起点（秒）",
+  "trimEndSec": "裁剪终点（秒）",
+  "trimEndHint": "0 = 保留至文件末尾",
+  "audioBitrate": "音频比特率",
+  "extractSampleRate": "输出采样率",
+  "keepOriginal": "保持原样",
+  "mono": "单声道",
+  "stereo": "立体声",
+  "audioChannels": "声道",
+  "audioTrackIndex": "音轨",
+  "audioTrackNumber": "音轨 {{n}}",
+  "normalizeLoudness": "响度标准化",
+  "normalizeLoudnessHint": "使用 loudnorm 统一音量",
+  "highPassFilter": "高通滤波",
+  "off": "关闭",
+  "removeSilence": "去除静音",
+  "removeSilenceHint": "裁剪首尾静音段",
+  "targetResolution": "输出分辨率",
+  "resolution1080": "1080p (1920×1080)",
+  "resolution720": "720p (1280×720)",
+  "resolution480": "480p (854×480)",
+  "targetFps": "帧率",
+  "mergeVideosAdvancedHint": "合并前会将所有片段统一为所选分辨率和帧率。",
+  "fadeInSec": "淡入（秒）",
+  "fadeOutSec": "淡出（秒）",
+  "progressLabel": "进度",
+  "progressPercent": "{{percent}}%",
+  "cancelProcessing": "取消处理",
+  "cancelProcessingTitle": "停止当前任务？",
+  "cancelProcessingDesc": "将立即终止正在运行的 FFmpeg 任务。磁盘上可能残留未完成的输出文件。",
+  "confirmCancel": "停止任务",
+  "keepProcessing": "继续处理",
+  "taskCancelled": "已取消处理",
+  "cancelTaskError": "无法取消 — 没有正在运行的任务",
+  "encodePreset": {
+    "ultrafast": {
+      "name": "Ultrafast",
+      "desc": "编码最快，压缩效率最低，输出文件较大"
+    },
+    "fast": {
+      "name": "Fast",
+      "desc": "速度与质量平衡较好，适合大多数任务"
+    },
+    "medium": {
+      "name": "Medium",
+      "desc": "编码较慢，压缩与质量更好"
+    },
+    "slow": {
+      "name": "Slow",
+      "desc": "编码最慢，压缩效率与质量最佳"
+    }
+  },
+  "crfQuality": {
+    "18": {
+      "name": "18 — 极佳",
+      "desc": "接近无损，文件最大"
+    },
+    "20": {
+      "name": "20 — 高",
+      "desc": "高质量，文件略小"
+    },
+    "23": {
+      "name": "23 — 平衡",
+      "desc": "质量与体积的默认平衡"
+    },
+    "26": {
+      "name": "26 — 紧凑",
+      "desc": "文件更小，细看可见压缩痕迹"
+    },
+    "28": {
+      "name": "28 — 最小",
+      "desc": "文件最小，质量损失较明显"
+    }
+  },
+  "speedTierDesc": "以 {{speed}}x 速度播放",
+  "speedFineDesc": "精细调节为 {{speed}}x",
+  "audioFormatOption": {
+    "wav": { "name": "WAV", "desc": "未压缩 PCM，质量最佳，文件最大" },
+    "mp3": { "name": "MP3", "desc": "常见压缩格式，兼容性好" },
+    "aac": { "name": "AAC", "desc": "现代压缩格式，质量与体积平衡" },
+    "flac": { "name": "FLAC", "desc": "无损压缩，文件较大" },
+    "m4a": { "name": "M4A", "desc": "MP4 容器中的 AAC，适合 Apple" }
+  },
+  "audioBitrateOption": {
+    "128": { "name": "128 kbps", "desc": "文件更小，适合语音" },
+    "192": { "name": "192 kbps", "desc": "质量与体积平衡 — 推荐" },
+    "256": { "name": "256 kbps", "desc": "更高音乐/音频质量" },
+    "320": { "name": "320 kbps", "desc": "有损格式的最高质量" }
+  },
+  "extractSampleRateOption": {
+    "0": { "name": "保持原样", "desc": "不进行采样率转换" },
+    "44100": { "name": "44.1 kHz", "desc": "CD 级采样率" },
+    "48000": { "name": "48 kHz", "desc": "视频/音频制作标准" }
+  },
+  "channelOption": {
+    "0": { "name": "保持原样", "desc": "保留源文件声道布局" },
+    "1": { "name": "单声道", "desc": "单声道输出" },
+    "2": { "name": "立体声", "desc": "双声道输出" }
+  },
+  "audioTrackOption": {
+    "0": { "name": "音轨 1", "desc": "文件中的第一条音频流" },
+    "1": { "name": "音轨 2", "desc": "文件中的第二条音频流" },
+    "2": { "name": "音轨 3", "desc": "文件中的第三条音频流" },
+    "3": { "name": "音轨 4", "desc": "文件中的第四条音频流" }
+  },
+  "whisperSampleRateOption": {
+    "8000": { "name": "8 kHz", "desc": "电话质量，Whisper 输入最小" },
+    "16000": { "name": "16 kHz", "desc": "Whisper 默认 — 推荐" },
+    "22050": { "name": "22.05 kHz", "desc": "低质量音乐/语音" },
+    "44100": { "name": "44.1 kHz", "desc": "CD 级输入" },
+    "48000": { "name": "48 kHz", "desc": "工作室/视频制作采样率" }
+  },
+  "highPassOption": {
+    "0": { "name": "关闭", "desc": "不使用高通滤波" },
+    "80": { "name": "80 Hz", "desc": "去除低频隆隆声" },
+    "100": { "name": "100 Hz", "desc": "更强的低频切除" },
+    "120": { "name": "120 Hz", "desc": "激进去除低频噪声" }
+  },
+  "resolutionOption": {
+    "1080": { "name": "1080p", "desc": "1920×1080 全高清" },
+    "720": { "name": "720p", "desc": "1280×720 高清，文件更小" },
+    "480": { "name": "480p", "desc": "854×480 标清，输出最小" }
+  },
+  "fpsOption": {
+    "24": { "name": "24 fps", "desc": "电影帧率" },
+    "30": { "name": "30 fps", "desc": "标准网络/视频帧率" },
+    "60": { "name": "60 fps", "desc": "流畅运动，文件更大" }
+  },
+  "outputFormatOption": {
+    "mp4": { "name": "MP4", "desc": "兼容性最好的容器" },
+    "mkv": { "name": "MKV", "desc": "灵活的开源容器" },
+    "mov": { "name": "MOV", "desc": "适合 Apple/QuickTime" }
+  },
+  "mergeAudioModeOption": {
+    "mix": { "name": "混合", "desc": "混合原视频与外部音频" },
+    "replace": { "name": "替换", "desc": "仅使用外部音频" }
+  }
 }

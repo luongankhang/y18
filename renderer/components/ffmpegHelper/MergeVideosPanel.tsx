@@ -4,14 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   FfmpegHelperTip,
@@ -29,6 +21,23 @@ import {
 } from 'lucide-react';
 import { OutputPathPreview } from './OutputPathPreview';
 import { useOutputPathPreview } from './useOutputPathPreview';
+import { isHelperTaskCancelled } from './helperTaskError';
+import {
+  AdvancedFieldHint,
+  AdvancedOptionsSection,
+} from './AdvancedOptionsSection';
+import { EncodePresetSelect, CrfQualitySelect } from './AdvancedSelectFields';
+import { FfmpegOptionSelect } from './FfmpegOptionSelect';
+import {
+  FfmpegHelperProgressDisplay,
+  processingButtonLabel,
+} from './FfmpegHelperProgressDisplay';
+import {
+  AUDIO_BITRATE_OPTIONS,
+  FPS_OPTIONS_LIST,
+  OUTPUT_FORMAT_OPTIONS,
+  RESOLUTION_OPTIONS_LIST,
+} from './ffmpegSelectOptions';
 
 interface MergeVideosPanelProps {
   processing: boolean;
@@ -60,6 +69,11 @@ export function MergeVideosPanel({
   const [videos, setVideos] = useState<string[]>([]);
   const [outputFolder, setOutputFolder] = useState('');
   const [outputFormat, setOutputFormat] = useState('mp4');
+  const [targetResolution, setTargetResolution] = useState('1080');
+  const [targetFps, setTargetFps] = useState('30');
+  const [videoPreset, setVideoPreset] = useState('fast');
+  const [crf, setCrf] = useState('23');
+  const [audioBitrate, setAudioBitrate] = useState('192');
 
   const mergeOutputPreview = useOutputPathPreview({
     inputFile: videos[0] || '',
@@ -139,10 +153,19 @@ export function MergeVideosPanel({
       await window?.ipc?.invoke('ffmpeg-merge-videos', {
         inputFiles: videos,
         outputFile,
+        targetResolution,
+        targetFps: parseInt(targetFps, 10),
+        videoPreset,
+        crf: parseInt(crf, 10),
+        audioBitrateKbps: parseInt(audioBitrate, 10),
       });
       onComplete(t('mergeVideosSuccess'));
-    } catch {
-      onError(t('mergeVideosError'));
+    } catch (error) {
+      if (isHelperTaskCancelled(error)) {
+        onComplete(t('taskCancelled'));
+      } else {
+        onError(t('mergeVideosError'));
+      }
     } finally {
       onProcessingChange(false);
       onProgressReset();
@@ -151,8 +174,6 @@ export function MergeVideosPanel({
 
   const selectTriggerClass =
     'bg-slate-50/50 dark:bg-slate-900/50 border-slate-200/50 dark:border-slate-700/50 rounded-xl focus:ring-2 focus:ring-emerald-500/20';
-  const selectContentClass =
-    'bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border-slate-200/50 dark:border-slate-700/50 rounded-xl shadow-xl';
 
   return (
     <Card
@@ -283,25 +304,58 @@ export function MergeVideosPanel({
           </div>
         </div>
 
-        <div className="space-y-3">
-          <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-            {t('mergeOutputFormat')}
-          </Label>
-          <Select
-            value={outputFormat}
-            onValueChange={setOutputFormat}
+        <FfmpegOptionSelect
+          label={t('mergeOutputFormat')}
+          value={outputFormat}
+          onValueChange={setOutputFormat}
+          options={OUTPUT_FORMAT_OPTIONS}
+          disabled={processing}
+          triggerClassName={selectTriggerClass}
+        />
+
+        <AdvancedOptionsSection
+          disabled={processing}
+          accentClass="border-emerald-200/60 dark:border-emerald-800/60"
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FfmpegOptionSelect
+              label={t('targetResolution')}
+              value={targetResolution}
+              onValueChange={setTargetResolution}
+              options={RESOLUTION_OPTIONS_LIST}
+              disabled={processing}
+            />
+            <FfmpegOptionSelect
+              label={t('targetFps')}
+              value={targetFps}
+              onValueChange={setTargetFps}
+              options={FPS_OPTIONS_LIST}
+              disabled={processing}
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <EncodePresetSelect
+              label={t('videoEncodePreset')}
+              value={videoPreset}
+              onValueChange={setVideoPreset}
+              disabled={processing}
+            />
+            <CrfQualitySelect
+              label={t('videoQualityCrf')}
+              value={crf}
+              onValueChange={setCrf}
+              disabled={processing}
+            />
+          </div>
+          <FfmpegOptionSelect
+            label={t('audioBitrate')}
+            value={audioBitrate}
+            onValueChange={setAudioBitrate}
+            options={AUDIO_BITRATE_OPTIONS}
             disabled={processing}
-          >
-            <SelectTrigger className={selectTriggerClass}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className={selectContentClass}>
-              <SelectItem value="mp4">MP4</SelectItem>
-              <SelectItem value="mkv">MKV</SelectItem>
-              <SelectItem value="mov">MOV</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          />
+          <AdvancedFieldHint>{t('mergeVideosAdvancedHint')}</AdvancedFieldHint>
+        </AdvancedOptionsSection>
 
         <OutputPathPreview preview={mergeOutputPreview} />
 
@@ -311,10 +365,17 @@ export function MergeVideosPanel({
           className="w-full h-12 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 font-semibold disabled:opacity-60"
         >
           <Zap className="w-4 h-4 mr-2" />
-          {processing ? t('processing') : t('mergeVideosProcess')}
+          {processingButtonLabel(
+            processing,
+            progress,
+            t('mergeVideosProcess'),
+            t('processing'),
+          )}
         </Button>
 
-        {processing && active && <Progress value={progress} className="h-2" />}
+        {processing && active && (
+          <FfmpegHelperProgressDisplay value={progress} />
+        )}
       </CardContent>
     </Card>
   );
