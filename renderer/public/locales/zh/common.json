@@ -137,6 +137,7 @@
   "downloadingUpdate": "正在下载更新",
   "downloadingUpdateDesc": "正在下载版本 {version}，下载完成后将提示安装。",
   "subtitleProofread": "字幕校对",
+  "srtEditor": "SRT 高级编辑",
   "subtitleMerge": "视频合字幕",
   "ffmpegHelper": "FFmpeg 助手",
   "updateDialogTitle": "发现新版本",

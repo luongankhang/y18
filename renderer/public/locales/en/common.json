@@ -137,6 +137,7 @@
   "downloadingUpdate": "Downloading Update",
   "downloadingUpdateDesc": "Downloading version {version}. You will be prompted to install when complete.",
   "subtitleProofread": "Subtitle Proofreading",
+  "srtEditor": "Advanced SRT Editor",
   "subtitleMerge": "Merge Subtitles",
   "ffmpegHelper": "FFmpeg Helper",
   "updateDialogTitle": "New Version Available",

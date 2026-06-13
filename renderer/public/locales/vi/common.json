@@ -137,6 +137,7 @@
   "downloadingUpdate": "Đang tải bản cập nhật",
   "downloadingUpdateDesc": "Đang tải phiên bản {version}. Bạn sẽ được nhắc cài đặt khi hoàn tất.",
   "subtitleProofread": "Hiệu đính phụ đề",
+  "srtEditor": "Chỉnh sửa SRT nâng cao",
   "subtitleMerge": "Ghép phụ đề",
   "ffmpegHelper": "FFmpeg Helper",
   "updateDialogTitle": "Có phiên bản mới",

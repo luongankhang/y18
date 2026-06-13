@@ -91,6 +91,9 @@ if (isProd) {
     // mainWindow.webContents.openDevTools();
   }
 
+  mainWindow.webContents.session.setSpellCheckerLanguages(['vi-VN', 'en-US']);
+  mainWindow.webContents.session.setSpellCheckerEnabled(true);
+
   setupAppMenu(mainWindow);
   setupQuitGuard(mainWindow);
   setupIpcHandlers(mainWindow);

@@ -17,6 +17,7 @@ import {
   Rocket,
   Edit3,
   Film,
+  FilePenLine,
   Zap,
   ZapOff,
   CircleHelp,
@@ -199,6 +200,25 @@ const Layout = ({ children }) => {
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={5}>
                 {t('subtitleProofread')}
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link href={`/${locale}/srtEditor`}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`rounded-lg ${
+                      asPath.includes('srtEditor') ? 'bg-muted' : ''
+                    }`}
+                    aria-label="SRT Editor"
+                  >
+                    <FilePenLine className="size-5" />
+                  </Button>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={5}>
+                {t('srtEditor')}
               </TooltipContent>
             </Tooltip>
             <Tooltip>

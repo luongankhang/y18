@@ -382,6 +382,27 @@ export function setupIpcHandlers(mainWindow: BrowserWindow) {
     },
   );
 
+  ipcMain.handle(
+    'selectSaveSubtitlePath',
+    async (_event, options: { defaultPath?: string; title?: string } = {}) => {
+      const result = await dialog.showSaveDialog({
+        title: options.title,
+        defaultPath: options.defaultPath,
+        filters: [
+          {
+            name: 'Subtitle Files',
+            extensions: SUBTITLE_EXTENSIONS.map((ext) => ext.substring(1)),
+          },
+        ],
+      });
+
+      return {
+        filePath: result.filePath || null,
+        canceled: result.canceled,
+      };
+    },
+  );
+
   // 选择多个文件
   ipcMain.handle(
     'selectFiles',
