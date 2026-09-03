@@ -9,6 +9,7 @@ import {
   getTimelineMediaSyncDecision,
   getTimelinePlaybackState,
 } from '../timelinePlayback.ts';
+import { getSequentialClipStartTimes } from '../timelineQueue.ts';
 
 const baseClip: TimelineClip = {
   id: 'clip',
@@ -130,5 +131,16 @@ test('media sync seeks a paused or badly drifted active clip', () => {
   assert.equal(
     getTimelineMediaSyncDecision(playback, 4, false, true).shouldSeek,
     true,
+  );
+});
+
+test('video queue appends clips after the current stack without overlap', () => {
+  const existing = [
+    { ...baseClip, startTime: 2, duration: 3, trimEnd: 0 },
+    { ...baseClip, id: 'clip-2', startTime: 8, duration: 2, trimEnd: 0.5 },
+  ];
+  assert.deepEqual(
+    getSequentialClipStartTimes(existing, [4, 1.5, 0]),
+    [9.5, 13.5, 15],
   );
 });

@@ -5,6 +5,7 @@ import type {
   TimelineTrack,
   TimelineTrackType,
 } from '../../../../types/subtitleMerge';
+import { getSequentialClipStartTimes } from '../../../lib/timelineQueue';
 
 const MIN_CLIP_DURATION = 0.05;
 
@@ -190,6 +191,52 @@ export function useTimelineEditor(
       }),
     [updateProject],
   );
+  const addClipsToTrack = useCallback(
+    (
+      trackId: string,
+      items: Array<{ sourceFile: string; clipDuration: number }>,
+      type: TimelineTrackType,
+    ) =>
+      updateProject((prev) => {
+        const track = prev.tracks.find((item) => item.id === trackId);
+        if (!track || track.locked || track.type !== type || !items.length)
+          return prev;
+        const starts = getSequentialClipStartTimes(
+          track.clips,
+          items.map((item) => item.clipDuration),
+        );
+        const clips = items.map((item, index) => ({
+          id: `clip-${Date.now()}-${index}-${Math.random().toString(16).slice(2)}`,
+          source:
+            type === 'subtitle'
+              ? item.sourceFile
+              : `media://${encodeURIComponent(item.sourceFile)}`,
+          sourceFile: item.sourceFile,
+          startTime: starts[index],
+          duration: Math.max(
+            MIN_CLIP_DURATION,
+            item.clipDuration || prev.duration,
+          ),
+          trimStart: 0,
+          trimEnd: 0,
+          volume: 1,
+        }));
+        const projectDuration = Math.max(
+          prev.duration,
+          ...clips.map((clip) => clip.startTime + clip.duration),
+        );
+        return {
+          ...prev,
+          duration: projectDuration,
+          tracks: prev.tracks.map((item) =>
+            item.id === trackId
+              ? { ...item, clips: [...item.clips, ...clips] }
+              : item,
+          ),
+        };
+      }),
+    [updateProject],
+  );
   const updateClip = useCallback(
     (trackId: string, clipId: string, patch: Partial<TimelineClip>) =>
       updateProject((prev) => ({
@@ -296,6 +343,7 @@ export function useTimelineEditor(
     selectedClip,
     addTrack,
     addClip,
+    addClipsToTrack,
     updateClip,
     deleteClip,
     moveClipToTrack,

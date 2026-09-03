@@ -219,23 +219,35 @@ export default function TimelineEditor({
     });
   };
   const addClipToTrack = async (track: TimelineTrack) => {
-    const result = await window.ipc?.invoke('selectFile', {
-      type: track.type === 'subtitle' ? 'subtitle' : track.type,
-      title: `Select ${track.type} file`,
-    });
-    if (result?.canceled || !result?.filePath) return;
-    const info =
-      track.type === 'subtitle'
-        ? null
-        : await window.ipc?.invoke('subtitleMerge:getVideoInfo', {
-            videoPath: result.filePath,
-          });
-    editor.addClip(
-      track.id,
-      result.filePath,
-      info?.data?.duration || editor.project.duration,
-      track.type,
+    const multiple = track.type === 'video';
+    const result = await window.ipc?.invoke(
+      multiple ? 'selectFiles' : 'selectFile',
+      {
+        type: track.type === 'subtitle' ? 'subtitle' : track.type,
+        title: `Select ${track.type} file`,
+        multiple,
+      },
     );
+    const filePaths = multiple
+      ? result?.filePaths || []
+      : result?.filePath
+        ? [result.filePath]
+        : [];
+    if (result?.canceled || !filePaths.length) return;
+    const items = await Promise.all(
+      filePaths.map(async (sourceFile: string) => {
+        if (track.type === 'subtitle')
+          return { sourceFile, clipDuration: editor.project.duration };
+        const info = await window.ipc?.invoke('subtitleMerge:getVideoInfo', {
+          videoPath: sourceFile,
+        });
+        return {
+          sourceFile,
+          clipDuration: info?.data?.duration || editor.project.duration,
+        };
+      }),
+    );
+    editor.addClipsToTrack(track.id, items, track.type);
   };
 
   return (
