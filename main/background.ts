@@ -25,6 +25,7 @@ import {
 import { setupAppMenu } from './helpers/menu';
 import { setupQuitGuard } from './helpers/quitGuard';
 import { setupTerminalHandlers } from './helpers/ipcTerminalHandlers';
+import { setupVoiceSeparationHandlers } from './helpers/ipcVoiceSeparationHandlers';
 
 //控制台出现中文乱码，需要去node_modules\electron\cli.js中修改启动代码页
 
@@ -55,6 +56,7 @@ if (isProd) {
   setupParameterHandlers();
   setupProofreadHandlers();
   setupFfmpegHandlers();
+  setupVoiceSeparationHandlers();
   registerAddonIpcHandlers();
 
   // Initialize configuration manager

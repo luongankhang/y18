@@ -14,6 +14,7 @@ import {
   FolderOpen,
   Film,
   Music2,
+  Mic2,
   Zap,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
@@ -48,6 +49,7 @@ import { MergeVideosPanel } from './MergeVideosPanel';
 import { MergeAudioPanel } from './MergeAudioPanel';
 import { FfmpegHelperCancelProcessing } from './FfmpegHelperCancelProcessing';
 import { isHelperTaskCancelled } from './helperTaskError';
+import { VoiceSeparationPanel } from './VoiceSeparationPanel';
 import {
   FfmpegHelperTip,
   ffmpegHelperCardClass,
@@ -371,6 +373,13 @@ export function FfmpegHelperPanel({
                   >
                     <FileAudio className="w-4 h-4 mr-3" />
                     {t('convertWhisper')}
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="voice-separation"
+                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all duration-300 justify-start px-5 py-3.5"
+                  >
+                    <Mic2 className="w-4 h-4 mr-3" />
+                    Tách giọng hát
                   </TabsTrigger>
                   <TabsTrigger
                     value="merge-audio"
@@ -867,6 +876,13 @@ export function FfmpegHelperPanel({
                         )}
                       </CardContent>
                     </Card>
+                  </TabsContent>
+
+                  <TabsContent
+                    value="voice-separation"
+                    className="mt-0 overflow-visible"
+                  >
+                    <VoiceSeparationPanel onError={onError} />
                   </TabsContent>
 
                   <TabsContent
