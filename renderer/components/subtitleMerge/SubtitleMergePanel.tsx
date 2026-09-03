@@ -328,8 +328,17 @@ export default function SubtitleMergePanel({
             onProjectChange={setTimelineProject}
           />
 
-          <Card className="flex-shrink-0">
-            <CardContent className="p-4">
+          <details className="group flex-shrink-0 rounded-lg border bg-card shadow-sm">
+            <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold hover:bg-muted/40">
+              <span>Export video</span>
+              <span className="text-[10px] font-normal text-muted-foreground group-open:hidden">
+                {outputPath ? 'Ready to configure' : 'Select output path'}
+              </span>
+              <span className="hidden text-[10px] font-normal text-muted-foreground group-open:inline">
+                Click to collapse
+              </span>
+            </summary>
+            <CardContent className="border-t p-4">
               <MergeButton
                 outputPath={outputPath}
                 progress={displayedProgress}
@@ -343,7 +352,7 @@ export default function SubtitleMergePanel({
                 onOpenOutputFolder={openOutputFolder}
               />
             </CardContent>
-          </Card>
+          </details>
         </div>
       </div>
     </div>

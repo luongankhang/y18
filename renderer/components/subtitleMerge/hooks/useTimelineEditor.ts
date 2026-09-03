@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   TimelineClip,
   TimelineProject,
@@ -6,6 +6,7 @@ import type {
   TimelineTrackType,
 } from '../../../../types/subtitleMerge';
 import { getSequentialClipStartTimes } from '../../../lib/timelineQueue';
+import { splitTimelineClip } from '../../../lib/timelineEditing';
 
 const MIN_CLIP_DURATION = 0.05;
 
@@ -53,6 +54,8 @@ export function useTimelineEditor(
   });
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
+  const undoStackRef = useRef<TimelineProject[]>([]);
+  const redoStackRef = useRef<TimelineProject[]>([]);
 
   useEffect(() => {
     setProject((prev) => {
@@ -137,7 +140,13 @@ export function useTimelineEditor(
 
   const updateProject = useCallback(
     (updater: (project: TimelineProject) => TimelineProject) =>
-      setProject((prev) => updater(prev)),
+      setProject((prev) => {
+        const next = updater(prev);
+        if (next === prev) return prev;
+        undoStackRef.current = [...undoStackRef.current, prev].slice(-100);
+        redoStackRef.current = [];
+        return next;
+      }),
     [],
   );
   const addTrack = useCallback(
@@ -271,6 +280,63 @@ export function useTimelineEditor(
       })),
     [updateProject],
   );
+  const duplicateClip = useCallback(
+    (trackId: string, clipId: string) =>
+      updateProject((prev) => {
+        const track = prev.tracks.find((item) => item.id === trackId);
+        const source = track?.clips.find((clip) => clip.id === clipId);
+        if (!track || !source || track.locked) return prev;
+        const startTime = source.startTime + source.duration - source.trimEnd;
+        const duplicate = {
+          ...source,
+          id: `clip-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          startTime,
+        };
+        const duration = Math.max(
+          prev.duration,
+          duplicate.startTime + duplicate.duration - duplicate.trimEnd,
+        );
+        return {
+          ...prev,
+          duration,
+          tracks: prev.tracks.map((item) =>
+            item.id === trackId
+              ? { ...item, clips: [...item.clips, duplicate] }
+              : item,
+          ),
+        };
+      }),
+    [updateProject],
+  );
+  const splitClip = useCallback(
+    (trackId: string, clipId: string, splitTime: number) =>
+      updateProject((prev) => {
+        const track = prev.tracks.find((item) => item.id === trackId);
+        const clip = track?.clips.find((item) => item.id === clipId);
+        if (!track || !clip || track.locked) return prev;
+        const split = splitTimelineClip(
+          clip,
+          splitTime,
+          `clip-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        );
+        if (!split) return prev;
+        const [left, right] = split;
+        return {
+          ...prev,
+          tracks: prev.tracks.map((item) =>
+            item.id === trackId
+              ? {
+                  ...item,
+                  clips: item.clips.flatMap((entry) =>
+                    entry.id === clipId ? [left, right] : [entry],
+                  ),
+                }
+              : item,
+          ),
+        };
+      }),
+    [updateProject],
+  );
   const moveClipToTrack = useCallback(
     (
       fromTrackId: string,
@@ -326,6 +392,22 @@ export function useTimelineEditor(
       })),
     [],
   );
+  const undo = useCallback(() => {
+    setProject((current) => {
+      const previous = undoStackRef.current.pop();
+      if (!previous) return current;
+      redoStackRef.current.push(current);
+      return previous;
+    });
+  }, []);
+  const redo = useCallback(() => {
+    setProject((current) => {
+      const next = redoStackRef.current.pop();
+      if (!next) return current;
+      undoStackRef.current.push(current);
+      return next;
+    });
+  }, []);
   const selectedClip = useMemo(
     () =>
       project.tracks
@@ -346,8 +428,14 @@ export function useTimelineEditor(
     addClipsToTrack,
     updateClip,
     deleteClip,
+    duplicateClip,
+    splitClip,
     moveClipToTrack,
     updateTrack,
     seek,
+    undo,
+    redo,
+    canUndo: undoStackRef.current.length > 0,
+    canRedo: redoStackRef.current.length > 0,
   };
 }

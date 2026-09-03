@@ -10,6 +10,7 @@ import {
   getTimelinePlaybackState,
 } from '../timelinePlayback.ts';
 import { getSequentialClipStartTimes } from '../timelineQueue.ts';
+import { splitTimelineClip } from '../timelineEditing.ts';
 
 const baseClip: TimelineClip = {
   id: 'clip',
@@ -143,4 +144,21 @@ test('video queue appends clips after the current stack without overlap', () => 
     getSequentialClipStartTimes(existing, [4, 1.5, 0]),
     [9.5, 13.5, 15],
   );
+});
+
+test('split preserves contiguous timeline and source-time alignment', () => {
+  const split = splitTimelineClip(baseClip, 7, 'right');
+  assert.ok(split);
+  const [left, right] = split;
+  assert.equal(left.startTime + left.duration, right.startTime);
+  assert.equal(left.trimStart + left.duration, right.trimStart);
+  assert.equal(
+    left.duration + right.duration,
+    baseClip.duration - baseClip.trimEnd,
+  );
+});
+
+test('split rejects cuts too close to clip boundaries', () => {
+  assert.equal(splitTimelineClip(baseClip, 4.01, 'right'), null);
+  assert.equal(splitTimelineClip(baseClip, 10.99, 'right'), null);
 });
