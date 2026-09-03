@@ -320,6 +320,7 @@ export default function SubtitleMergePanel({
 
         <div className="flex flex-col gap-3 min-h-0 overflow-hidden">
           <TimelineEditor
+            key={videoPath || 'timeline-empty'}
             videoPath={videoPath}
             subtitlePath={subtitlePath}
             duration={videoInfo?.duration || preview.duration}

@@ -80,6 +80,25 @@ export function useTimelineEditor(
           volume: 1,
         };
         track.clips = [...track.clips, clampClip(clip, duration)];
+      } else if (videoPath) {
+        // The first render can happen before ffprobe returns the real duration.
+        // Expand only the untouched auto-created clip, never user-edited clips.
+        tracks.forEach((track) => {
+          if (track.type !== 'video') return;
+          track.clips = track.clips.map((clip) =>
+            clip.sourceFile === videoPath &&
+            clip.startTime === 0 &&
+            clip.trimStart === 0 &&
+            clip.trimEnd === 0 &&
+            clip.duration <= 1 &&
+            duration > clip.duration
+              ? clampClip(
+                  { ...clip, duration: initialDuration || duration },
+                  duration,
+                )
+              : clip,
+          );
+        });
       }
       if (
         subtitlePath &&
