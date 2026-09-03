@@ -6,7 +6,7 @@
 
  */
 
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useTranslation } from 'next-i18next';
 
@@ -42,6 +42,8 @@ import {
 import { useMergePreviewSession } from './hooks/useMergePreviewSession';
 
 import { parseShortTime } from './utils/timeUtils';
+import TimelineEditor from './TimelineEditor';
+import type { TimelineProject } from '../../../types/subtitleMerge';
 
 interface SubtitleMergePanelProps extends UseSubtitleMergeOptions {
   title?: string;
@@ -113,6 +115,19 @@ export default function SubtitleMergePanel({
   } = useSubtitleMerge(hookOptions);
 
   const preview = useMergePreviewSession(subtitlePath, style, videoInfo?.width);
+  const [timelineProject, setTimelineProject] =
+    useState<TimelineProject | null>(null);
+  const [timelineExporting, setTimelineExporting] = useState(false);
+  const [timelineExportPercent, setTimelineExportPercent] = useState(0);
+
+  useEffect(() => {
+    const cleanup = window.ipc?.on(
+      'subtitleMerge:timelineProgress',
+      (data: { percent: number }) =>
+        setTimelineExportPercent(data.percent || 0),
+    );
+    return cleanup;
+  }, []);
 
   const previewRef = useRef(preview);
   previewRef.current = preview;
@@ -145,16 +160,81 @@ export default function SubtitleMergePanel({
     [],
   );
 
+  const canTimelineExport = Boolean(
+    timelineProject &&
+      outputPath &&
+      timelineProject.tracks.some(
+        (track) => track.type === 'video' && track.clips.length > 0,
+      ),
+  );
+
   const handleStartMerge = useCallback(async () => {
+    const timelineHasEdits = timelineProject?.tracks.some(
+      (track) =>
+        track.clips.length >
+          (track.type === 'subtitle' && subtitlePath ? 1 : 0) ||
+        track.clips.some(
+          (clip) =>
+            clip.startTime > 0 || clip.trimStart > 0 || clip.trimEnd > 0,
+        ),
+    );
+    if (
+      timelineProject &&
+      canTimelineExport &&
+      (!subtitlePath || timelineHasEdits) &&
+      outputPath
+    ) {
+      setTimelineExporting(true);
+      setTimelineExportPercent(0);
+      try {
+        const result = await window.ipc.invoke('subtitleMerge:exportTimeline', {
+          project: timelineProject,
+          outputPath,
+          width: exportSettings.customWidth || videoInfo?.width,
+          height: exportSettings.customHeight || videoInfo?.height,
+          fps:
+            exportSettings.fpsMode === 'custom'
+              ? exportSettings.customFps
+              : videoInfo?.fps,
+          subtitleStyle: style,
+          renderMode: exportSettings.renderMode,
+        });
+        if (!result.success)
+          throw new Error(result.error || 'Timeline export failed');
+      } catch (error) {
+        hookOptions.onError?.(
+          error instanceof Error ? error.message : String(error),
+        );
+      } finally {
+        setTimelineExporting(false);
+      }
+      return;
+    }
     if (previewRef.current.isDirty) {
       const saved = await previewRef.current.saveCues();
       if (!saved) return;
     }
     await startMerge();
-  }, [startMerge]);
+  }, [
+    startMerge,
+    timelineProject,
+    outputPath,
+    exportSettings,
+    videoInfo,
+    style,
+    subtitlePath,
+    canTimelineExport,
+  ]);
 
-  const isProcessing = status === 'processing';
-
+  const isProcessing = status === 'processing' || timelineExporting;
+  const displayedStatus = timelineExporting ? 'processing' : status;
+  const displayedProgress = timelineExporting
+    ? {
+        ...progress,
+        percent: timelineExportPercent,
+        status: 'processing' as const,
+      }
+    : progress;
   return (
     <div className={`h-full flex flex-col ${className}`}>
       <div className="flex-shrink-0 mb-3">
@@ -239,43 +319,21 @@ export default function SubtitleMergePanel({
         </Card>
 
         <div className="flex flex-col gap-3 min-h-0 overflow-hidden">
-          <MergePreviewSection
+          <TimelineEditor
             videoPath={videoPath}
             subtitlePath={subtitlePath}
-            videoInfo={videoInfo}
-            style={style}
-            blurMask={blurMask}
-            customTextOverlay={customTextOverlay}
+            duration={videoInfo?.duration || preview.duration}
             disabled={isProcessing}
-            previewText={preview.previewText}
-            playerRef={preview.playerRef}
-            currentTime={preview.currentTime}
-            duration={preview.duration}
-            isPlaying={preview.isPlaying}
-            cues={preview.cues}
-            selectedIndex={preview.selectedIndex}
-            activeIndex={preview.activeIndex}
-            isDirty={preview.isDirty}
-            onProgress={preview.handleProgress}
-            onDuration={preview.handleDuration}
-            onSeek={preview.handleSeek}
-            onTogglePlay={preview.togglePlay}
-            onSelectCue={preview.selectCue}
-            onUpdateCueText={preview.updateCueText}
-            onUpdateCueTime={handleUpdateCueTime}
-            onAddCue={preview.addCueAtCurrentTime}
-            onDeleteCue={preview.deleteSelectedCue}
-            onSaveCues={preview.saveCues}
-            onOverlayPositionChange={handleOverlayPositionChange}
+            onProjectChange={setTimelineProject}
           />
 
           <Card className="flex-shrink-0">
             <CardContent className="p-4">
               <MergeButton
                 outputPath={outputPath}
-                progress={progress}
-                status={status}
-                canMerge={canMerge}
+                progress={displayedProgress}
+                status={displayedStatus}
+                canMerge={canMerge || canTimelineExport}
                 videoInfo={videoInfo}
                 exportSettings={exportSettings}
                 onUpdateExportSettings={updateExportSettings}

@@ -195,6 +195,48 @@ export interface MergeConfig {
   exportSettings?: VideoExportSettings;
 }
 
+export type TimelineTrackType = 'video' | 'audio' | 'subtitle';
+
+export interface TimelineClip {
+  id: string;
+  source: string;
+  sourceFile: string;
+  startTime: number;
+  duration: number;
+  trimStart: number;
+  trimEnd: number;
+  volume: number;
+  position?: { x: number; y: number; width?: number; height?: number };
+}
+
+export interface TimelineTrack {
+  id: string;
+  type: TimelineTrackType;
+  name: string;
+  order: number;
+  muted: boolean;
+  hidden: boolean;
+  locked: boolean;
+  volume: number;
+  clips: TimelineClip[];
+}
+
+export interface TimelineProject {
+  duration: number;
+  currentTime: number;
+  tracks: TimelineTrack[];
+}
+
+export interface TimelineExportConfig {
+  project: TimelineProject;
+  outputPath: string;
+  width?: number;
+  height?: number;
+  fps?: number;
+  subtitleStyle?: SubtitleStyle;
+  renderMode?: 'cpu' | 'gpu';
+}
+
 /**
  * 合并状态
  */
@@ -262,6 +304,8 @@ export interface VideoExportSettings {
   fpsMode: 'source' | 'custom';
   /** 自定义 FPS */
   customFps: number;
+  /** Video encoder mode for timeline export. */
+  renderMode: 'cpu' | 'gpu';
 }
 
 /**

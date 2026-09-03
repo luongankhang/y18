@@ -170,6 +170,29 @@ export default function ExportSettings({
         </Select>
       </div>
 
+      <div className="space-y-2">
+        <Label className="text-sm">Render mode</Label>
+        <Select
+          value={exportSettings.renderMode}
+          onValueChange={(value) =>
+            onUpdateExportSettings({
+              renderMode: value as VideoExportSettings['renderMode'],
+            })
+          }
+          disabled={disabled}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="cpu">CPU (libx264)</SelectItem>
+            <SelectItem value="gpu">
+              GPU (hardware encoder, fallback CPU)
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {exportSettings.fpsMode === 'custom' && fpsPreset === 'custom' && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">

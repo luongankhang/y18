@@ -329,6 +329,7 @@ export const DEFAULT_EXPORT_SETTINGS: VideoExportSettings = {
   customHeight: 1080,
   fpsMode: 'source',
   customFps: 30,
+  renderMode: 'cpu',
 };
 
 export const RESOLUTION_PRESETS = [

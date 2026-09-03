@@ -13,6 +13,7 @@ import {
   getSubtitleFormat,
   countSubtitles,
 } from './subtitleMerger';
+import { exportTimeline } from './timelineExporter';
 import type {
   MergeConfig,
   MergeProgress,
@@ -120,6 +121,28 @@ export function setupSubtitleMergeHandlers(mainWindow: BrowserWindow) {
       }
     },
   );
+
+  ipcMain.handle('subtitleMerge:exportTimeline', async (event, config) => {
+    try {
+      if (!config?.outputPath || !config?.project?.tracks) {
+        return { success: false, error: 'TIMELINE_CONFIG_INVALID' };
+      }
+      const outputDir = path.dirname(config.outputPath);
+      await fs.promises.mkdir(outputDir, { recursive: true });
+      const result = await exportTimeline(config, (percent) => {
+        mainWindow.webContents.send('subtitleMerge:timelineProgress', {
+          percent,
+        });
+      });
+      return { success: true, data: result };
+    } catch (error) {
+      logMessage(`Timeline export failed: ${error}`, 'error');
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
 
   // 选择输出路径
   ipcMain.handle(
