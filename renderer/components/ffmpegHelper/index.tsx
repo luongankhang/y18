@@ -379,7 +379,7 @@ export function FfmpegHelperPanel({
                     className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all duration-300 justify-start px-5 py-3.5"
                   >
                     <Mic2 className="w-4 h-4 mr-3" />
-                    Tách giọng hát
+                    {t('voice.tab')}
                   </TabsTrigger>
                   <TabsTrigger
                     value="merge-audio"

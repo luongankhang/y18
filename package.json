@@ -11,7 +11,8 @@
     "build": "nextron build --no-pack",
     "build:local": "nextron build",
     "test:timeline": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test main/helpers/__tests__/timelineFilterGraph.test.ts main/helpers/__tests__/timelineAudio.integration.test.ts renderer/lib/__tests__/timelinePlayback.test.ts",
-    "test:voice": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test main/helpers/__tests__/voiceSeparationCore.test.ts",
+    "test:voice": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test main/helpers/__tests__/voiceSeparationCore.test.ts main/helpers/__tests__/voiceVideo.integration.test.ts",
+    "runtime:demucs:windows": "powershell -ExecutionPolicy Bypass -File scripts/build-demucs-runtime.ps1",
     "postinstall": "electron-builder install-app-deps",
     "format": "prettier --write ."
   },

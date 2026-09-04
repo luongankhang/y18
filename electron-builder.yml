@@ -32,6 +32,10 @@ win:
   target:
     - nsis
   extraResources:
+    - from: ./extraResources/demucs-runtime/
+      to: ./demucs-runtime/
+      filter:
+        - '**/*'
     - from: ./extraResources/addons/
       to: ./extraResources/addons/
       filter:

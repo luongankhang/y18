@@ -29,6 +29,84 @@ function getWhisperLanguage(language?: string): string {
   return normalized;
 }
 
+export interface BuiltinTranscriptionOptions {
+  audioFile: string;
+  model: string;
+  language?: string;
+  prompt?: string;
+  maxContext?: number;
+  onProgress?: (progress: number) => void;
+}
+
+/** Run the built-in Whisper addon without coupling it to a renderer task. */
+export async function transcribeAudioWithBuiltinWhisper(
+  options: BuiltinTranscriptionOptions,
+): Promise<string> {
+  const whisperModel = options.model.toLowerCase();
+  const settings = store.get('settings') || {};
+  const useCuda = settings.useCuda || false;
+  const platform = process.platform;
+  const arch = process.arch;
+  let shouldUseGpu = false;
+  let canUseCuda = false;
+
+  if (platform === 'darwin' && arch === 'arm64') {
+    shouldUseGpu = true;
+  } else if ((platform === 'win32' || platform === 'linux') && useCuda) {
+    canUseCuda = !!(await checkCudaSupport());
+    shouldUseGpu = canUseCuda;
+  }
+
+  const modelPath = path.join(
+    getPath('modelsPath'),
+    `ggml-${whisperModel}.bin`,
+  );
+  if (!fs.existsSync(modelPath)) throw new Error('WHISPER_MODEL_MISSING');
+  const whisper = await loadWhisperAddon(whisperModel, canUseCuda);
+  const whisperAsync = promisify(whisper);
+
+  const vadModelPath = path.join(
+    getExtraResourcesPath(),
+    'ggml-silero-v6.2.0.bin',
+  );
+  const result: any = await whisperAsync({
+    language: getWhisperLanguage(options.language),
+    model: modelPath,
+    fname_inp: options.audioFile,
+    use_gpu: shouldUseGpu,
+    flash_attn: false,
+    no_prints: false,
+    comma_in_time: false,
+    translate: false,
+    no_timestamps: false,
+    audio_ctx: 0,
+    max_len: 0,
+    print_progress: true,
+    prompt: options.prompt,
+    max_context: +(options.maxContext ?? -1),
+    vad: settings.useVAD !== false,
+    vad_model: vadModelPath,
+    vad_threshold: getNumericSetting(settings.vadThreshold, 0.5),
+    vad_min_speech_duration_ms: getNumericSetting(
+      settings.vadMinSpeechDuration,
+      250,
+    ),
+    vad_min_silence_duration_ms: getNumericSetting(
+      settings.vadMinSilenceDuration,
+      100,
+    ),
+    vad_max_speech_duration_s: getNumericSetting(
+      settings.vadMaxSpeechDuration,
+      0,
+    ),
+    vad_speech_pad_ms: getNumericSetting(settings.vadSpeechPad, 30),
+    vad_samples_overlap: getNumericSetting(settings.vadSamplesOverlap, 0.1),
+    progress_callback: (progress: number) => options.onProgress?.(progress),
+  });
+
+  return formatSrtContent(result?.transcription || []);
+}
+
 /**
  * 使用本地Whisper命令行工具生成字幕
  */
@@ -97,97 +175,22 @@ export async function generateSubtitleWithBuiltinWhisper(
 
   try {
     const { tempAudioFile, srtFile } = file;
-    console.log(tempAudioFile, srtFile, file, 'tempAudioFile, srtFile');
     const { model, sourceLanguage, prompt, maxContext } = formData;
-    const whisperModel = model?.toLowerCase();
-    const settings = store.get('settings');
-    const useCuda = settings.useCuda || false;
-    const platform = process.platform;
-    const arch = process.arch;
-
-    // 修改 GPU 判断逻辑
-    let shouldUseGpu = false;
-    let canUseCuda = false;
-    if (platform === 'darwin' && arch === 'arm64') {
-      shouldUseGpu = true;
-    } else if ((platform === 'win32' || platform === 'linux') && useCuda) {
-      canUseCuda = !!(await checkCudaSupport());
-      shouldUseGpu = canUseCuda;
-    }
-    const whisper = await loadWhisperAddon(whisperModel, canUseCuda);
-    const whisperAsync = promisify(whisper);
-    const modelPath = `${getPath('modelsPath')}/ggml-${whisperModel}.bin`;
-
-    // VAD 模型路径 - 使用内置的 VAD 模型
-    const vadModelPath = path.join(
-      getExtraResourcesPath(),
-      'ggml-silero-v6.2.0.bin',
-    );
-
-    // 获取VAD设置
-    const vadSettings = {
-      useVAD: settings.useVAD !== false, // 默认启用
-      vadThreshold: getNumericSetting(settings.vadThreshold, 0.5),
-      vadMinSpeechDuration: getNumericSetting(
-        settings.vadMinSpeechDuration,
-        250,
-      ),
-      vadMinSilenceDuration: getNumericSetting(
-        settings.vadMinSilenceDuration,
-        100,
-      ),
-      vadMaxSpeechDuration: getNumericSetting(settings.vadMaxSpeechDuration, 0), // 0表示无限制
-      vadSpeechPad: getNumericSetting(settings.vadSpeechPad, 30),
-      vadSamplesOverlap: getNumericSetting(settings.vadSamplesOverlap, 0.1),
-    };
-    const whisperParams = {
-      language: getWhisperLanguage(sourceLanguage),
-      model: modelPath,
-      fname_inp: tempAudioFile,
-      use_gpu: !!shouldUseGpu,
-      flash_attn: false,
-      no_prints: false,
-      comma_in_time: false,
-      translate: false,
-      no_timestamps: false,
-      audio_ctx: 0,
-      max_len: 0,
-      print_progress: true,
+    event.sender.send('taskProgressChange', file, 'extractSubtitle', 0);
+    const formattedSrt = await transcribeAudioWithBuiltinWhisper({
+      audioFile: tempAudioFile,
+      model,
+      language: sourceLanguage,
       prompt,
-      max_context: +(maxContext ?? -1),
-      // VAD 参数
-      vad: vadSettings.useVAD,
-      vad_model: vadModelPath,
-      vad_threshold: vadSettings.vadThreshold,
-      vad_min_speech_duration_ms: vadSettings.vadMinSpeechDuration,
-      vad_min_silence_duration_ms: vadSettings.vadMinSilenceDuration,
-      vad_max_speech_duration_s: vadSettings.vadMaxSpeechDuration,
-      vad_speech_pad_ms: vadSettings.vadSpeechPad,
-      vad_samples_overlap: vadSettings.vadSamplesOverlap,
-      progress_callback: (progress) => {
-        console.log(`处理进度: ${progress}%`);
-        // 更新UI显示进度
+      maxContext,
+      onProgress: (progress) =>
         event.sender.send(
           'taskProgressChange',
           file,
           'extractSubtitle',
           progress,
-        );
-      },
-    };
-
-    logMessage(
-      `whisperParams: ${JSON.stringify(whisperParams, null, 2)}`,
-      'info',
-    );
-    event.sender.send('taskProgressChange', file, 'extractSubtitle', 0);
-    const result = await whisperAsync(whisperParams);
-    console.log(result, 'result');
-
-    // 格式化字幕内容
-    const formattedSrt = formatSrtContent(result?.transcription || []);
-
-    // 写入格式化后的内容
+        ),
+    });
     await fs.promises.writeFile(srtFile, formattedSrt);
 
     event.sender.send('taskFileChange', { ...file, extractSubtitle: 'done' });

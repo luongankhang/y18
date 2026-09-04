@@ -94,7 +94,7 @@ export type FfmpegEncodePreset = 'ultrafast' | 'fast' | 'medium' | 'slow';
 export type FfmpegTargetResolution = '1080' | '720' | '480';
 export type FfmpegHelperVideoFormat = 'mp4' | 'mkv' | 'mov';
 
-interface MediaProbeResult {
+export interface MediaProbeResult {
   hasVideo: boolean;
   hasAudio: boolean;
 }
@@ -216,7 +216,7 @@ function appendAudioFadeFilter(
 }
 
 /** Probe streams using ffmpeg -i (ffmpeg-static does not ship ffprobe). */
-function probeMedia(inputFile: string): Promise<MediaProbeResult> {
+export function probeMedia(inputFile: string): Promise<MediaProbeResult> {
   return new Promise((resolve, reject) => {
     const proc = spawn(ffmpegPath, ['-hide_banner', '-i', inputFile], {
       stdio: ['ignore', 'ignore', 'pipe'],
@@ -605,7 +605,7 @@ function buildSequentialConcatFilter(
   return parts.join(';');
 }
 
-function getMediaDurationSec(inputFile: string): Promise<number> {
+export function getMediaDurationSec(inputFile: string): Promise<number> {
   return new Promise((resolve) => {
     const proc = spawn(ffmpegPath, ['-hide_banner', '-i', inputFile], {
       stdio: ['ignore', 'ignore', 'pipe'],

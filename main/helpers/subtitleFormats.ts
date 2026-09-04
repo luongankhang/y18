@@ -462,3 +462,15 @@ export function convertSubtitleContent(
   const cues = parseSubtitleCues(content, fromFormat);
   return serializeSubtitleCues(cues, toFormat);
 }
+
+/** Scale canonical SRT timestamps to match a media playback speed. */
+export function retimeSrtContent(content: string, speed: number): string {
+  if (!Number.isFinite(speed) || speed < 0.25 || speed > 4)
+    throw new Error('VOICE_SPEED_INVALID');
+  const cues = parseSubtitleCues(content, 'srt').map((cue) => ({
+    ...cue,
+    startMs: cue.startMs / speed,
+    endMs: cue.endMs / speed,
+  }));
+  return serializeSubtitleCues(cues, 'srt');
+}

@@ -11,9 +11,25 @@ import type {
   VoiceSeparationMode,
   VoiceSeparationDevice,
   VoiceStemResult,
+  VoiceDeliverable,
+  VoiceOutputPreset,
+  DemucsProcessingOptions,
+  VoiceTranscriptionOptions,
 } from '../../types/voiceSeparation';
-import { buildDemucsArgs, parseDemucsProgress } from './voiceSeparationCore';
-import { logMessage } from './storeManager';
+import {
+  buildDemucsArgs,
+  buildStemVideoArgs,
+  parseNvidiaSmiCudaVersion,
+  parseNvidiaSmiQueryOutput,
+  parseDemucsProgress,
+  sortVoiceJobsForQueue,
+  validateDemucsProcessingOptions,
+  validateVoiceSpeed,
+} from './voiceSeparationCore';
+import { logMessage, store } from './storeManager';
+import { transcribeAudioWithBuiltinWhisper } from './subtitleGenerator';
+import { convertSubtitleContent, retimeSrtContent } from './subtitleFormats';
+import { getMediaDurationSec } from './ffmpegHelperCore';
 
 const execFileAsync = promisify(execFile);
 const ffmpegPath = ffmpegStatic.replace('app.asar', 'app.asar.unpacked');
@@ -21,6 +37,21 @@ let activeProcess: ChildProcess | null = null;
 let activeJobId: string | null = null;
 let processing = false;
 let jobs: VoiceSeparationJob[] = [];
+
+const defaultDemucsOptions: DemucsProcessingOptions = {
+  shifts: 1,
+  overlap: 0.25,
+  jobs: 0,
+  split: true,
+  bitDepth: 'int16',
+  clipMode: 'rescale',
+};
+
+const defaultTranscription: VoiceTranscriptionOptions = {
+  enabled: false,
+  model: 'base',
+  language: 'auto',
+};
 
 function stopProcessTree(child: ChildProcess) {
   if (process.platform === 'win32' && child.pid) {
@@ -79,20 +110,64 @@ async function createUniqueStemPath(
   }
 }
 
+async function createUniqueDeliverablePath(
+  outputDirectory: string,
+  baseName: string,
+  suffix: string,
+  extension: string,
+) {
+  let index = 0;
+  while (true) {
+    const candidate = path.join(
+      outputDirectory,
+      `${baseName}_${suffix}${index ? `_${index}` : ''}.${extension}`,
+    );
+    try {
+      const handle = await fs.promises.open(candidate, 'wx');
+      await handle.close();
+      return candidate;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      index += 1;
+    }
+  }
+}
+
+function normalizeJob(job: VoiceSeparationJob): VoiceSeparationJob {
+  return {
+    ...job,
+    outputs: job.outputs?.length ? job.outputs : ['voice'],
+    speed: job.speed ?? 1,
+    keepPitch: job.keepPitch ?? true,
+    keepStems: job.keepStems ?? true,
+    demucs: { ...defaultDemucsOptions, ...job.demucs },
+    transcription: { ...defaultTranscription, ...job.transcription },
+    deliverables: job.deliverables || [],
+    warnings: job.warnings || [],
+  };
+}
+
 export function initializeVoiceSeparationQueue() {
   try {
     if (fs.existsSync(jobsPath()))
       jobs = JSON.parse(fs.readFileSync(jobsPath(), 'utf8'));
-    jobs = jobs.map((job) =>
-      ['preparing', 'separating', 'validating'].includes(job.status)
+    jobs = jobs.map((rawJob) => {
+      const job = normalizeJob(rawJob);
+      return [
+        'preparing',
+        'separating',
+        'transcribing',
+        'rendering',
+        'validating',
+      ].includes(job.status)
         ? {
             ...job,
             status: 'failed',
             error: 'VOICE_INTERRUPTED',
             stageLabel: 'Interrupted',
           }
-        : job,
-    );
+        : job;
+    });
     saveJobs();
   } catch (error) {
     jobs = [];
@@ -106,7 +181,7 @@ async function probeCandidate(
 ): Promise<VoiceRuntimeInfo | null> {
   try {
     const script =
-      "import json,sys,demucs,torch; print(json.dumps({'python':sys.version.split()[0],'demucs':getattr(demucs,'__version__','unknown'),'torch':torch.__version__,'cuda':torch.cuda.is_available(),'gpu':torch.cuda.get_device_name(0) if torch.cuda.is_available() else None}))";
+      "import json,sys,demucs,torch,torchaudio; cuda=torch.cuda.is_available(); torch.zeros(1,device='cuda') if cuda else None; print(json.dumps({'python':sys.version.split()[0],'demucs':getattr(demucs,'__version__','unknown'),'torch':torch.__version__,'audioBackends':torchaudio.list_audio_backends(),'cuda':cuda,'gpu':torch.cuda.get_device_name(0) if cuda else None}))";
     const { stdout } = await execFileAsync(file, [...prefix, '-c', script], {
       timeout: 10000,
       windowsHide: true,
@@ -118,6 +193,9 @@ async function probeCandidate(
       pythonVersion: data.python,
       demucsVersion: data.demucs,
       torchVersion: data.torch,
+      audioBackends: Array.isArray(data.audioBackends)
+        ? data.audioBackends
+        : [],
       cudaAvailable: Boolean(data.cuda),
       gpuName: data.gpu || undefined,
     };
@@ -126,27 +204,125 @@ async function probeCandidate(
   }
 }
 
-export async function probeVoiceRuntime(): Promise<VoiceRuntimeInfo> {
-  const bundled = path.join(
-    process.resourcesPath,
-    'demucs-runtime',
-    process.platform === 'win32' ? 'python.exe' : 'bin/python3',
+async function probeNvidiaHardware() {
+  if (process.platform !== 'win32' && process.platform !== 'linux') return null;
+  try {
+    const { stdout: queryOutput } = await execFileAsync(
+      'nvidia-smi',
+      ['--query-gpu=name,driver_version', '--format=csv,noheader'],
+      { timeout: 5000, windowsHide: true },
+    );
+    const parsed = parseNvidiaSmiQueryOutput(queryOutput);
+    if (!parsed) return null;
+    let nvidiaCudaVersion: string | undefined;
+    try {
+      const { stdout } = await execFileAsync('nvidia-smi', [], {
+        timeout: 5000,
+        windowsHide: true,
+      });
+      nvidiaCudaVersion = parseNvidiaSmiCudaVersion(stdout);
+    } catch {
+      nvidiaCudaVersion = undefined;
+    }
+    return { ...parsed, nvidiaCudaVersion };
+  } catch {
+    return null;
+  }
+}
+
+function uniqueRuntimeCandidates(candidates: Array<[string, string[]]>) {
+  const seen = new Set<string>();
+  return candidates.filter(([file, prefix]) => {
+    const key = `${file}\0${prefix.join('\0')}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function runtimeRoots() {
+  const roots = [path.join(process.resourcesPath, 'demucs-runtime')];
+  if (!app.isPackaged) {
+    roots.push(
+      path.join(process.cwd(), 'extraResources', 'demucs-runtime'),
+      path.resolve(app.getAppPath(), '..', 'extraResources', 'demucs-runtime'),
+      path.resolve(
+        app.getAppPath(),
+        '..',
+        '..',
+        'extraResources',
+        'demucs-runtime',
+      ),
+    );
+  }
+  return [...new Set(roots)];
+}
+
+function bundledRuntimeCandidates(): Array<[string, string[]]> {
+  return runtimeRoots().flatMap((root) =>
+    process.platform === 'win32'
+      ? [
+          [path.join(root, 'Scripts', 'python.exe'), []],
+          [path.join(root, 'python.exe'), []],
+        ]
+      : [
+          [path.join(root, 'bin', 'python3'), []],
+          [path.join(root, 'bin', 'python'), []],
+          [path.join(root, 'python'), []],
+        ],
   );
-  const configured = process.env.Y18_DEMUCS_PYTHON;
+}
+
+export async function probeVoiceRuntime(): Promise<VoiceRuntimeInfo> {
+  const nvidia = await probeNvidiaHardware();
+  const configured =
+    store.get('voiceSeparationPythonPath') || process.env.Y18_DEMUCS_PYTHON;
   const candidates: Array<[string, string[]]> = [];
   if (configured) candidates.push([configured, []]);
-  if (fs.existsSync(bundled)) candidates.push([bundled, []]);
+  bundledRuntimeCandidates().forEach(([candidate, prefix]) => {
+    if (fs.existsSync(candidate)) candidates.push([candidate, prefix]);
+  });
   if (process.platform === 'win32')
     candidates.push(['py', ['-3']], ['python', []]);
   else candidates.push(['python3', []], ['python', []]);
-  for (const [file, prefix] of candidates) {
+  const uniqueCandidates = uniqueRuntimeCandidates(candidates);
+  let pythonDetected = false;
+  let audioBackendMissing = false;
+  for (const [file, prefix] of uniqueCandidates) {
+    try {
+      await execFileAsync(file, [...prefix, '--version'], {
+        timeout: 5000,
+        windowsHide: true,
+      });
+      pythonDetected = true;
+    } catch {
+      continue;
+    }
     const result = await probeCandidate(file, prefix);
-    if (result) return result;
+    if (result?.audioBackends?.length)
+      return {
+        ...result,
+        nvidiaHardwareAvailable: Boolean(nvidia),
+        nvidiaDriverVersion: nvidia?.driverVersion,
+        nvidiaCudaVersion: nvidia?.nvidiaCudaVersion,
+        gpuName: result.gpuName || nvidia?.gpuName,
+        runtimeSearchPaths: uniqueCandidates.map(([file]) => file),
+      };
+    if (result) audioBackendMissing = true;
   }
   return {
     available: false,
     cudaAvailable: false,
-    error: 'VOICE_RUNTIME_MISSING',
+    nvidiaHardwareAvailable: Boolean(nvidia),
+    nvidiaDriverVersion: nvidia?.driverVersion,
+    nvidiaCudaVersion: nvidia?.nvidiaCudaVersion,
+    gpuName: nvidia?.gpuName,
+    runtimeSearchPaths: uniqueCandidates.map(([file]) => file),
+    error: audioBackendMissing
+      ? 'VOICE_AUDIO_BACKEND_MISSING'
+      : pythonDetected
+        ? 'VOICE_DEMUCS_OR_TORCH_MISSING'
+        : 'VOICE_RUNTIME_MISSING',
   };
 }
 
@@ -179,6 +355,139 @@ function runProcess(
         : reject(new Error(stderr || `PROCESS_EXIT_${code}`));
     });
   });
+}
+
+async function renderStemVideo(
+  job: VoiceSeparationJob,
+  stemPath: string,
+  preset: Extract<VoiceOutputPreset, 'voice-video' | 'karaoke-video'>,
+) {
+  const base = path.parse(job.inputFile).name;
+  const target = await createUniqueDeliverablePath(
+    job.outputDirectory,
+    base,
+    `${preset}_${job.speed}x`,
+    'mp4',
+  );
+  const partial = path.join(
+    path.dirname(target),
+    `.${path.basename(target)}.${job.id}.partial.mp4`,
+  );
+  await fs.promises.unlink(target).catch(() => undefined);
+  try {
+    const sourceDurationSec = await getMediaDurationSec(job.inputFile);
+    if (!sourceDurationSec) throw new Error('VOICE_DURATION_INVALID');
+    await runProcess(
+      ffmpegPath,
+      buildStemVideoArgs({
+        inputFile: job.inputFile,
+        stemFile: stemPath,
+        outputFile: partial,
+        speed: job.speed,
+        keepPitch: job.keepPitch,
+        outputDurationSec: sourceDurationSec / job.speed,
+      }),
+    );
+    assertJobNotCancelled(job.id);
+    await fs.promises.rename(partial, target);
+    return target;
+  } catch (error) {
+    await fs.promises.unlink(partial).catch(() => undefined);
+    throw error;
+  }
+}
+
+async function mixInstrumentalStems(
+  job: VoiceSeparationJob,
+  stems: VoiceStemResult[],
+) {
+  const inputs = stems.filter((stem) => stem.type !== 'vocals');
+  if (!inputs.length) throw new Error('VOICE_INSTRUMENTAL_MISSING');
+  const base = path.parse(job.inputFile).name;
+  const target = await createUniqueStemPath(
+    job.outputDirectory,
+    base,
+    'instrumental',
+  );
+  await fs.promises.unlink(target).catch(() => undefined);
+  try {
+    const args = ['-y'];
+    inputs.forEach((stem) => args.push('-i', stem.filePath));
+    args.push(
+      '-filter_complex',
+      `${inputs.map((_, index) => `[${index}:a:0]`).join('')}amix=inputs=${inputs.length}:normalize=0,alimiter=limit=0.95[a]`,
+      '-map',
+      '[a]',
+      '-c:a',
+      'pcm_s16le',
+      target,
+    );
+    await runProcess(ffmpegPath, args);
+    return target;
+  } catch (error) {
+    await fs.promises.unlink(target).catch(() => undefined);
+    throw error;
+  }
+}
+
+async function createTranscriptionDeliverables(
+  job: VoiceSeparationJob,
+  vocalsPath: string,
+) {
+  const base = path.parse(job.inputFile).name;
+  updateJob(job.id, {
+    status: 'transcribing',
+    progress: 62,
+    stageLabel: 'Transcribing vocals',
+  });
+  let lastProgressUpdate = 0;
+  const rawSrt = await transcribeAudioWithBuiltinWhisper({
+    audioFile: vocalsPath,
+    model: job.transcription.model,
+    language: job.transcription.language,
+    onProgress: (progress) => {
+      const now = Date.now();
+      if (progress < 100 && now - lastProgressUpdate < 500) return;
+      lastProgressUpdate = now;
+      updateJob(job.id, {
+        progress: 62 + Math.min(100, Math.max(0, progress)) * 0.13,
+        stageLabel: 'Transcribing vocals',
+      });
+    },
+  });
+  assertJobNotCancelled(job.id);
+  const srtContent =
+    job.speed === 1 ? rawSrt : retimeSrtContent(rawSrt, job.speed);
+  const srtPath = await createUniqueDeliverablePath(
+    job.outputDirectory,
+    base,
+    'subtitle',
+    'srt',
+  );
+  const txtPath = await createUniqueDeliverablePath(
+    job.outputDirectory,
+    base,
+    'transcript',
+    'txt',
+  );
+  try {
+    await fs.promises.writeFile(srtPath, srtContent, 'utf8');
+    await fs.promises.writeFile(
+      txtPath,
+      convertSubtitleContent(rawSrt, 'srt', 'txt'),
+      'utf8',
+    );
+  } catch (error) {
+    await Promise.all([
+      fs.promises.unlink(srtPath).catch(() => undefined),
+      fs.promises.unlink(txtPath).catch(() => undefined),
+    ]);
+    throw error;
+  }
+  return [
+    { type: 'subtitle-srt', filePath: srtPath },
+    { type: 'transcript-txt', filePath: txtPath },
+  ] satisfies VoiceDeliverable[];
 }
 
 async function processJob(job: VoiceSeparationJob) {
@@ -220,17 +529,22 @@ async function processJob(job: VoiceSeparationJob) {
       runtime.pythonPath === 'py'
         ? ['-3']
         : [];
+    const resolvedDevice =
+      job.device === 'auto'
+        ? runtime.cudaAvailable
+          ? 'gpu'
+          : 'cpu'
+        : job.device;
     const args = buildDemucsArgs({
       mode: job.mode,
       modelId: job.modelId,
-      device:
-        job.device === 'auto'
-          ? runtime.cudaAvailable
-            ? 'gpu'
-            : 'cpu'
-          : job.device,
+      device: resolvedDevice,
       outputDirectory: demucsOut,
       inputFile: sourceWav,
+      processing: {
+        ...job.demucs,
+        jobs: resolvedDevice === 'gpu' ? 0 : job.demucs.jobs,
+      },
     });
     let lastProgressUpdate = 0;
     await runProcess(runtime.pythonPath, [...prefix, ...args], (line) => {
@@ -242,22 +556,19 @@ async function processJob(job: VoiceSeparationJob) {
       ) {
         lastProgressUpdate = now;
         updateJob(job.id, {
-          progress: 15 + percent * 0.75,
+          progress: 15 + percent * 0.4,
           stageLabel: 'Separating stems',
         });
       }
     });
     assertJobNotCancelled(job.id);
-    updateJob(job.id, {
-      status: 'validating',
-      progress: 92,
-      stageLabel: 'Validating output',
-    });
     const sourceDir = path.join(demucsOut, job.modelId, 'source');
     const names =
       job.mode === 'vocals'
         ? ['vocals', 'no_vocals']
-        : ['vocals', 'drums', 'bass', 'other'];
+        : job.modelId === 'htdemucs_6s'
+          ? ['vocals', 'drums', 'bass', 'other', 'guitar', 'piano']
+          : ['vocals', 'drums', 'bass', 'other'];
     await fs.promises.mkdir(job.outputDirectory, { recursive: true });
     const stemTypes: Record<string, VoiceStemResult['type']> = {
       no_vocals: 'instrumental',
@@ -265,6 +576,8 @@ async function processJob(job: VoiceSeparationJob) {
       drums: 'drums',
       bass: 'bass',
       other: 'other',
+      guitar: 'guitar',
+      piano: 'piano',
     };
     const base = path.parse(job.inputFile).name;
     const stems: VoiceStemResult[] = [];
@@ -286,11 +599,79 @@ async function processJob(job: VoiceSeparationJob) {
       stems.push({ type: stemTypes[name], filePath: target });
     }
     assertJobNotCancelled(job.id);
+    const deliverables: VoiceDeliverable[] = [];
+    const vocalsPath = stems.find((stem) => stem.type === 'vocals')?.filePath;
+    let instrumentalPath = stems.find(
+      (stem) => stem.type === 'instrumental',
+    )?.filePath;
+    if (job.outputs.includes('karaoke-video') && !instrumentalPath) {
+      instrumentalPath = await mixInstrumentalStems(job, stems);
+      stems.push({ type: 'instrumental', filePath: instrumentalPath });
+    }
+    if (!vocalsPath) throw new Error('VOICE_OUTPUT_INVALID');
+    if (job.outputs.includes('voice'))
+      deliverables.push({ type: 'voice', filePath: vocalsPath });
+    updateJob(job.id, { stems, deliverables, progress: 60 });
+
+    if (job.transcription.enabled) {
+      const subtitles = await createTranscriptionDeliverables(job, vocalsPath);
+      deliverables.push(...subtitles);
+      updateJob(job.id, { deliverables, progress: 76 });
+    }
+
+    const videoOutputs = job.outputs.filter(
+      (output): output is 'voice-video' | 'karaoke-video' =>
+        output === 'voice-video' || output === 'karaoke-video',
+    );
+    for (let index = 0; index < videoOutputs.length; index += 1) {
+      const output = videoOutputs[index];
+      const audioPath =
+        output === 'voice-video' ? vocalsPath : instrumentalPath;
+      if (!audioPath) throw new Error('VOICE_INSTRUMENTAL_MISSING');
+      updateJob(job.id, {
+        status: 'rendering',
+        progress: 78 + (index / videoOutputs.length) * 16,
+        stageLabel:
+          output === 'voice-video'
+            ? 'Rendering voice video'
+            : 'Rendering karaoke video',
+      });
+      const filePath = await renderStemVideo(job, audioPath, output);
+      deliverables.push({ type: output, filePath });
+      updateJob(job.id, { deliverables });
+    }
+
+    assertJobNotCancelled(job.id);
+    updateJob(job.id, {
+      status: 'validating',
+      progress: 97,
+      stageLabel: 'Validating deliverables',
+      stems,
+      deliverables,
+    });
+    const publishedStemPaths = new Set(
+      deliverables
+        .filter((item) => item.type === 'voice')
+        .map((item) => item.filePath),
+    );
+    const publishedStems = job.keepStems
+      ? stems
+      : stems.filter((stem) => publishedStemPaths.has(stem.filePath));
+    if (!job.keepStems) {
+      await Promise.all(
+        stems
+          .filter((stem) => !publishedStemPaths.has(stem.filePath))
+          .map((stem) =>
+            fs.promises.unlink(stem.filePath).catch(() => undefined),
+          ),
+      );
+    }
     updateJob(job.id, {
       status: 'completed',
       progress: 100,
       stageLabel: 'Completed',
-      stems,
+      stems: publishedStems,
+      deliverables,
     });
   } finally {
     await fs.promises
@@ -303,23 +684,31 @@ async function drainQueue() {
   if (processing) return;
   processing = true;
   try {
-    let next = jobs.find((job) => job.status === 'queued');
+    let next = sortVoiceJobsForQueue(jobs).find(
+      (job) => job.status === 'queued',
+    );
     while (next) {
       activeJobId = next.id;
       try {
         await processJob(next);
       } catch (error) {
-        const cancelled =
-          jobs.find((job) => job.id === next!.id)?.status === 'cancelled';
+        const current = jobs.find((job) => job.id === next!.id);
+        const cancelled = current?.status === 'cancelled';
         if (!cancelled)
           updateJob(next.id, {
-            status: 'failed',
-            stageLabel: 'Failed',
+            status:
+              current?.stems.length || current?.deliverables.length
+                ? 'partial'
+                : 'failed',
+            stageLabel:
+              current?.stems.length || current?.deliverables.length
+                ? 'Partially completed'
+                : 'Failed',
             error: error instanceof Error ? error.message : String(error),
           });
       }
       activeJobId = null;
-      next = jobs.find((job) => job.status === 'queued');
+      next = sortVoiceJobsForQueue(jobs).find((job) => job.status === 'queued');
     }
   } finally {
     processing = false;
@@ -337,8 +726,16 @@ export function enqueueVoiceJobs(
     mode: VoiceSeparationMode;
     modelId: string;
     device: VoiceSeparationDevice;
+    outputs: VoiceOutputPreset[];
+    speed: number;
+    keepPitch: boolean;
+    keepStems: boolean;
+    demucs: DemucsProcessingOptions;
+    transcription: VoiceTranscriptionOptions;
   },
 ) {
+  validateVoiceSpeed(options.speed);
+  validateDemucsProcessingOptions(options.demucs);
   const created = inputFiles.map<VoiceSeparationJob>((inputFile, index) => ({
     id: `voice-${Date.now()}-${index}-${Math.random().toString(16).slice(2)}`,
     inputFile,
@@ -346,10 +743,18 @@ export function enqueueVoiceJobs(
     mode: options.mode,
     modelId: options.modelId,
     device: options.device,
+    outputs: options.outputs,
+    speed: options.speed,
+    keepPitch: options.keepPitch,
+    keepStems: options.keepStems,
+    demucs: options.demucs,
+    transcription: options.transcription,
     status: 'queued',
     progress: 0,
     stageLabel: 'Queued',
     stems: [],
+    deliverables: [],
+    warnings: [],
     createdAt: Date.now() + index,
     attempt: 1,
   }));
@@ -361,7 +766,10 @@ export function enqueueVoiceJobs(
 
 export function cancelVoiceJob(id: string) {
   const job = jobs.find((item) => item.id === id);
-  if (!job || ['completed', 'failed', 'cancelled'].includes(job.status))
+  if (
+    !job ||
+    ['completed', 'partial', 'failed', 'cancelled'].includes(job.status)
+  )
     return false;
   updateJob(id, { status: 'cancelled', stageLabel: 'Cancelled' });
   if (activeJobId === id && activeProcess) stopProcessTree(activeProcess);
@@ -374,13 +782,16 @@ export function stopVoiceSeparationQueue() {
 
 export function retryVoiceJob(id: string) {
   const job = jobs.find((item) => item.id === id);
-  if (!job || !['failed', 'cancelled'].includes(job.status)) return false;
+  if (!job || !['partial', 'failed', 'cancelled'].includes(job.status))
+    return false;
   updateJob(id, {
     status: 'queued',
     progress: 0,
     stageLabel: 'Queued',
     error: undefined,
     stems: [],
+    deliverables: [],
+    warnings: [],
     attempt: job.attempt + 1,
   });
   void drainQueue();
