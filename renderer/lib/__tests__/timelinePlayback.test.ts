@@ -135,6 +135,49 @@ test('media sync seeks a paused or badly drifted active clip', () => {
   );
 });
 
+test('media sync corrects short SRT-cue drift before it becomes audible', () => {
+  const cueAudio = {
+    ...baseClip,
+    startTime: 2,
+    duration: 0.8,
+    trimStart: 0,
+    trimEnd: 0,
+  };
+  const playback = getTimelinePlaybackState(track('audio'), cueAudio, 2.2);
+  assert.equal(playback.inRange, true);
+  assert.ok(Math.abs(playback.sourceTime - 0.2) < 0.001);
+  assert.equal(
+    getTimelineMediaSyncDecision(playback, 0.31, false, true).shouldSeek,
+    true,
+  );
+  assert.equal(
+    getTimelineMediaSyncDecision(playback, 0.29, false, true).shouldSeek,
+    false,
+  );
+});
+
+test('audio generated for an SRT cue is inactive before and after its exact window', () => {
+  const cueAudio = {
+    ...baseClip,
+    startTime: 10,
+    duration: 1.25,
+    trimStart: 0,
+    trimEnd: 0,
+  };
+  assert.equal(
+    getTimelinePlaybackState(track('audio'), cueAudio, 9.999).inRange,
+    false,
+  );
+  assert.equal(
+    getTimelinePlaybackState(track('audio'), cueAudio, 10).sourceTime,
+    0,
+  );
+  assert.equal(
+    getTimelinePlaybackState(track('audio'), cueAudio, 11.25).inRange,
+    false,
+  );
+});
+
 test('2x playback maps project time to source time and halves clip span', () => {
   const fast = { ...baseClip, playbackRate: 2 };
   const state = getTimelinePlaybackState(track('video'), fast, 6);

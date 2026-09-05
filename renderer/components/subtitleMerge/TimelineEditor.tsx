@@ -47,9 +47,11 @@ import { useTimelineEditor } from './hooks/useTimelineEditor';
 import {
   getTimelineClockTime,
   getTimelineClipDuration,
+  getTimelineClipEndTime,
   getTimelineMediaSyncDecision,
   getTimelinePlaybackState,
 } from '../../lib/timelinePlayback';
+import { buildTimedTtsClipInputs } from '../../lib/timelineTts';
 
 interface TimelineEditorProps {
   videoPath: string | null;
@@ -581,32 +583,26 @@ export default function TimelineEditor({
           job.outputs.length !== ttsCues.length
         )
           throw new Error(job?.error || 'OMNIVOICE_BATCH_OUTPUT_INVALID');
-        const outputsById = new Map(
-          job.outputs.map((output: any) => [output.itemId, output]),
+        const timedTtsClips = buildTimedTtsClipInputs(
+          ttsCues.map((cue, index) => ({
+            id: `cue-${index}`,
+            text: cue.text,
+            start: cue.start,
+            end: cue.end,
+          })),
+          job.outputs,
+          {
+            generator: 'omnivoice',
+            modelId: 'k2-fsa/OmniVoice',
+            mode: ttsMode,
+            language: 'vi',
+            speed: ttsSpeed,
+            generatedAt: Date.now(),
+          },
         );
-        editor.addTimedClips(
-          audioTrack.id,
-          ttsCues.map((cue, index) => {
-            const output = outputsById.get(`cue-${index}`) as any;
-            if (!output?.outputPath || !output.duration)
-              throw new Error(`OMNIVOICE_OUTPUT_INVALID_${index + 1}`);
-            return {
-              sourceFile: output.outputPath,
-              duration: Math.min(output.duration, cue.end - cue.start),
-              startTime: cue.start,
-              metadata: {
-                generator: 'omnivoice',
-                modelId: 'k2-fsa/OmniVoice',
-                text: cue.text,
-                mode: ttsMode,
-                language: 'vi',
-                speed: ttsSpeed,
-                generatedAt: Date.now(),
-              },
-            };
-          }),
-          'audio',
-        );
+        if (timedTtsClips.length !== ttsCues.length)
+          throw new Error('OMNIVOICE_TIMELINE_CUE_MAPPING_INVALID');
+        editor.addTimedClips(audioTrack.id, timedTtsClips, 'audio');
         setTtsText('');
         setTtsCues([]);
         setTtsSourceFile('');
@@ -1128,8 +1124,7 @@ export default function TimelineEditor({
               track.clips.some(
                 (clip) =>
                   editor.project.currentTime >= clip.startTime &&
-                  editor.project.currentTime <
-                    clip.startTime + getTimelineClipDuration(clip),
+                  editor.project.currentTime < getTimelineClipEndTime(clip),
               ),
           ) && (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-white/60">

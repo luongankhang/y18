@@ -228,6 +228,9 @@ export interface TimelineClip {
     speed?: number;
     instruction?: string;
     referenceAudio?: string;
+    subtitleCueId?: string;
+    subtitleStartTime?: number;
+    subtitleEndTime?: number;
     generatedAt?: number;
   };
   position?: { x: number; y: number; width?: number; height?: number };

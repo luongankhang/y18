@@ -21,6 +21,10 @@ export function getTimelineClipDuration(clip: TimelineClip): number {
   return Math.max(0, clip.duration - clip.trimEnd) / rate;
 }
 
+export function getTimelineClipEndTime(clip: TimelineClip): number {
+  return clip.startTime + getTimelineClipDuration(clip);
+}
+
 export function getTimelineClockTime(
   startedTime: number,
   startedAtMs: number,
@@ -70,10 +74,11 @@ export function getTimelineMediaSyncDecision(
   return {
     visible: playback.visible,
     shouldPlay: isPlaying && playback.shouldRun,
-    // Avoid seeking on every animation frame; repeated seeks can blank a decoder.
+    // Keep the media clock close to the master clock without seeking every frame.
+    // A 500 ms correction is audible for short SRT cues, so cap drift at 100 ms.
     shouldSeek:
       playback.inRange &&
-      (mediaPaused || Math.abs(mediaCurrentTime - playback.sourceTime) > 0.5),
+      (mediaPaused || Math.abs(mediaCurrentTime - playback.sourceTime) > 0.1),
     sourceTime: playback.sourceTime,
   };
 }
