@@ -6,7 +6,11 @@ import type {
   TimelineTrackType,
 } from '../../../../types/subtitleMerge';
 import { getSequentialClipStartTimes } from '../../../lib/timelineQueue';
-import { splitTimelineClip } from '../../../lib/timelineEditing';
+import {
+  splitTimelineClip,
+  trimTimelineClip,
+  type TimelineTrimEdge,
+} from '../../../lib/timelineEditing';
 import { normalizeTimelineProject } from '../../../../types/timelineProject';
 
 const MIN_CLIP_DURATION = 0.05;
@@ -441,6 +445,54 @@ export function useTimelineEditor(
       })),
     [updateProject],
   );
+  const deleteTrack = useCallback(
+    (trackId: string) =>
+      updateProject((prev) => {
+        const target = prev.tracks.find((track) => track.id === trackId);
+        if (!target || target.locked) return prev;
+        const sameType = prev.tracks.filter(
+          (track) => track.type === target.type,
+        );
+        if (sameType.length <= 1) return prev;
+        return {
+          ...prev,
+          tracks: prev.tracks
+            .filter((track) => track.id !== trackId)
+            .map((track, index) => ({ ...track, order: index })),
+        };
+      }),
+    [updateProject],
+  );
+  const trimClip = useCallback(
+    (
+      trackId: string,
+      clipId: string,
+      edge: TimelineTrimEdge,
+      deltaTimelineSec: number,
+    ) =>
+      updateProject((prev) => {
+        const track = prev.tracks.find((item) => item.id === trackId);
+        const clip = track?.clips.find((item) => item.id === clipId);
+        if (!track || track.locked || !clip) return prev;
+        const trimmed = trimTimelineClip(clip, edge, deltaTimelineSec);
+        return {
+          ...prev,
+          tracks: prev.tracks.map((item) =>
+            item.id === trackId
+              ? {
+                  ...item,
+                  clips: item.clips.map((itemClip) =>
+                    itemClip.id === clipId
+                      ? clampClip(trimmed, prev.duration)
+                      : itemClip,
+                  ),
+                }
+              : item,
+          ),
+        };
+      }),
+    [updateProject],
+  );
   const duplicateClip = useCallback(
     (trackId: string, clipId: string) =>
       updateProject((prev) => {
@@ -591,6 +643,8 @@ export function useTimelineEditor(
     hydrateSubtitleClip,
     updateClip,
     deleteClip,
+    deleteTrack,
+    trimClip,
     duplicateClip,
     splitClip,
     moveClipToTrack,

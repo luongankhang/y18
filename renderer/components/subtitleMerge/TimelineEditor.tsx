@@ -138,6 +138,12 @@ export default function TimelineEditor({
     trackId: string;
     clipId: string;
   } | null>(null);
+  const trimGestureRef = useRef<{
+    trackId: string;
+    clipId: string;
+    edge: 'start' | 'end';
+    originX: number;
+  } | null>(null);
   const [subtitleImportMode, setSubtitleImportMode] =
     useState<SubtitleTimingMode>('absolute');
   const [subtitleStatus, setSubtitleStatus] = useState('');
@@ -293,6 +299,28 @@ export default function TimelineEditor({
       }
     }
   }, [editor.project.tracks, editor.hydrateSubtitleClip]);
+
+  useEffect(() => {
+    const move = (event: MouseEvent) => {
+      const gesture = trimGestureRef.current;
+      if (!gesture) return;
+      editor.trimClip(
+        gesture.trackId,
+        gesture.clipId,
+        gesture.edge,
+        (event.clientX - gesture.originX) / pxPerSecond,
+      );
+    };
+    const end = () => {
+      trimGestureRef.current = null;
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    return () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', end);
+    };
+  }, [editor.trimClip, pxPerSecond]);
 
   const activeSubtitleCues = useMemo(
     () =>
@@ -1381,6 +1409,13 @@ export default function TimelineEditor({
                   >
                     <Plus className="h-3 w-3" />
                   </button>
+                  <button
+                    title="Delete track"
+                    disabled={disabled || track.locked}
+                    onClick={() => editor.deleteTrack(track.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
                 </div>
                 <div
                   className="relative flex-1 overflow-hidden"
@@ -1407,7 +1442,7 @@ export default function TimelineEditor({
                         event.stopPropagation();
                         editor.setSelectedClipId(clip.id);
                       }}
-                      className={`absolute top-2 h-12 cursor-grab select-none overflow-hidden rounded-md border px-2 py-1 text-[10px] shadow-sm active:cursor-grabbing ${editor.selectedClipId === clip.id ? 'z-10 border-sky-500 bg-sky-500/20 ring-1 ring-sky-500/40' : track.type === 'video' ? 'border-cyan-700/60 bg-cyan-950/15 dark:bg-cyan-950/55' : track.type === 'audio' ? 'border-emerald-700/60 bg-emerald-950/15 dark:bg-emerald-950/55' : 'border-amber-700/60 bg-amber-950/15 dark:bg-amber-950/55'}`}
+                      className={`relative absolute top-2 h-12 cursor-grab select-none overflow-hidden rounded-md border px-2 py-1 text-[10px] shadow-sm active:cursor-grabbing ${editor.selectedClipId === clip.id ? 'z-10 border-sky-500 bg-sky-500/20 ring-1 ring-sky-500/40' : track.type === 'video' ? 'border-cyan-700/60 bg-cyan-950/15 dark:bg-cyan-950/55' : track.type === 'audio' ? 'border-emerald-700/60 bg-emerald-950/15 dark:bg-emerald-950/55' : 'border-amber-700/60 bg-amber-950/15 dark:bg-amber-950/55'}`}
                       style={{
                         left: clip.startTime * pxPerSecond,
                         width: Math.max(
@@ -1419,6 +1454,32 @@ export default function TimelineEditor({
                       title={clip.sourceFile}
                       onDoubleClick={() => editor.deleteClip(track.id, clip.id)}
                     >
+                      <span
+                        aria-label="Trim start"
+                        className="absolute inset-y-0 left-0 z-10 w-2 cursor-ew-resize bg-sky-500/40 opacity-0 transition-opacity hover:opacity-100"
+                        onMouseDown={(event) => {
+                          event.stopPropagation();
+                          trimGestureRef.current = {
+                            trackId: track.id,
+                            clipId: clip.id,
+                            edge: 'start',
+                            originX: event.clientX,
+                          };
+                        }}
+                      />
+                      <span
+                        aria-label="Trim end"
+                        className="absolute inset-y-0 right-0 z-10 w-2 cursor-ew-resize bg-sky-500/40 opacity-0 transition-opacity hover:opacity-100"
+                        onMouseDown={(event) => {
+                          event.stopPropagation();
+                          trimGestureRef.current = {
+                            trackId: track.id,
+                            clipId: clip.id,
+                            edge: 'end',
+                            originX: event.clientX,
+                          };
+                        }}
+                      />
                       <span className="block truncate font-medium">
                         {clip.sourceFile.split(/[\\/]/).pop()}
                       </span>
