@@ -1,0 +1,45 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { buildTimelineVideoGraph } from '../../../main/helpers/timelineFilterGraph.ts';
+import type { TimelineTrack } from '../../../types/subtitleMerge.ts';
+
+test('video export graph consumes normalized visual transform fields', () => {
+  const track: TimelineTrack = {
+    id: 'video',
+    type: 'video',
+    name: 'Video',
+    order: 0,
+    muted: false,
+    hidden: false,
+    locked: false,
+    volume: 1,
+    clips: [
+      {
+        id: 'clip',
+        source: 'media://video',
+        sourceFile: 'video.mp4',
+        startTime: 1,
+        duration: 4,
+        trimStart: 0,
+        trimEnd: 0,
+        volume: 1,
+        transform: {
+          x: 0.2,
+          y: -0.1,
+          scaleX: 0.5,
+          scaleY: 0.5,
+          rotation: 15,
+          mirrorX: false,
+          flipY: false,
+          opacity: 0.75,
+        },
+        inputIndex: 0,
+      } as any,
+    ],
+  };
+  const graph = buildTimelineVideoGraph([track], 5, 1920, 1080, 30);
+  assert.match(graph, /scale=960:540/);
+  assert.match(graph, /rotate=15\*PI\/180/);
+  assert.match(graph, /colorchannelmixer=aa=0\.75/);
+  assert.match(graph, /\+384:\(oh-ih\)\/2\+-108/);
+});

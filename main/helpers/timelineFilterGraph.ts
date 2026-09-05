@@ -40,14 +40,28 @@ export function buildTimelineVideoGraph(
         (end - clip.startTime) * playbackRate,
       );
       const visualFilters = [
-        clip.mirrorX ? 'hflip' : '',
-        clip.flipY ? 'vflip' : '',
+        clip.mirrorX || clip.transform?.mirrorX ? 'hflip' : '',
+        clip.flipY || clip.transform?.flipY ? 'vflip' : '',
       ].filter(Boolean);
       const transform = visualFilters.length
         ? `,${visualFilters.join(',')}`
         : '';
+      const clipTransform = clip.transform || {
+        x: 0,
+        y: 0,
+        scaleX: clip.mirrorX ? -1 : 1,
+        scaleY: clip.flipY ? -1 : 1,
+        rotation: 0,
+        opacity: 1,
+      };
+      const scaleX = Math.max(0.05, Math.abs(clipTransform.scaleX || 1));
+      const scaleY = Math.max(0.05, Math.abs(clipTransform.scaleY || 1));
+      const opacity = Math.max(0, Math.min(1, clipTransform.opacity ?? 1));
+      const positionX = Number(clipTransform.x || 0) * width;
+      const positionY = Number(clipTransform.y || 0) * height;
+      const rotation = Number(clipTransform.rotation || 0);
       graph.push(
-        `[${inputIndex}:v]trim=start=${Math.max(0, clip.trimStart)}:duration=${sourceDuration},setpts=(PTS-STARTPTS)/${playbackRate}+${Math.max(0, clip.startTime)}/TB${transform},scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2[${clipLabel}]`,
+        `[${inputIndex}:v]trim=start=${Math.max(0, clip.trimStart)}:duration=${sourceDuration},setpts=(PTS-STARTPTS)/${playbackRate}+${Math.max(0, clip.startTime)}/TB${transform},scale=${width * scaleX}:${height * scaleY}:force_original_aspect_ratio=decrease,pad=${width * scaleX}:${height * scaleY}:(ow-iw)/2:(oh-ih)/2:color=black@0,rotate=${rotation}*PI/180:fillcolor=black@0,colorchannelmixer=aa=${opacity},pad=${width}:${height}:(ow-iw)/2+${positionX}:(oh-ih)/2+${positionY}:color=black@0[${clipLabel}]`,
       );
       graph.push(
         `[${current}][${clipLabel}]overlay=shortest=0:eof_action=pass:format=auto[${next}]`,

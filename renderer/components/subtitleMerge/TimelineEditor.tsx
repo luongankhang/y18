@@ -38,6 +38,7 @@ import type {
   TimelineSubtitleCue,
   TimelineTrack,
   TimelineTrackType,
+  TimelineTransform,
 } from '../../../types/subtitleMerge';
 import {
   getActiveSubtitleCues,
@@ -118,6 +119,24 @@ function trackIcon(type: TimelineTrackType) {
   return <Mic2 className="h-3.5 w-3.5" />;
 }
 
+function getVisualTransform(clip: {
+  transform?: Partial<TimelineTransform>;
+  mirrorX?: boolean;
+  flipY?: boolean;
+}): TimelineTransform {
+  return {
+    x: 0,
+    y: 0,
+    scaleX: 1,
+    scaleY: 1,
+    rotation: 0,
+    mirrorX: Boolean(clip.mirrorX),
+    flipY: Boolean(clip.flipY),
+    opacity: 1,
+    ...clip.transform,
+  };
+}
+
 export default function TimelineEditor({
   videoPath,
   subtitlePath,
@@ -143,6 +162,16 @@ export default function TimelineEditor({
     clipId: string;
     edge: 'start' | 'end';
     originX: number;
+  } | null>(null);
+  const visualGestureRef = useRef<{
+    trackId: string;
+    clipId: string;
+    mode: 'move' | 'resize';
+    originX: number;
+    originY: number;
+    width: number;
+    height: number;
+    transform: TimelineTransform;
   } | null>(null);
   const [subtitleImportMode, setSubtitleImportMode] =
     useState<SubtitleTimingMode>('absolute');
@@ -322,6 +351,43 @@ export default function TimelineEditor({
     };
   }, [editor.trimClip, pxPerSecond]);
 
+  useEffect(() => {
+    const move = (event: PointerEvent) => {
+      const gesture = visualGestureRef.current;
+      if (!gesture) return;
+      const dx = (event.clientX - gesture.originX) / gesture.width;
+      const dy = (event.clientY - gesture.originY) / gesture.height;
+      const transform =
+        gesture.mode === 'move'
+          ? {
+              ...gesture.transform,
+              x: gesture.transform.x + dx,
+              y: gesture.transform.y + dy,
+            }
+          : {
+              ...gesture.transform,
+              scaleX: Math.max(
+                0.05,
+                Math.min(4, gesture.transform.scaleX * (1 + dx)),
+              ),
+              scaleY: Math.max(
+                0.05,
+                Math.min(4, gesture.transform.scaleY * (1 + dy)),
+              ),
+            };
+      editor.updateClip(gesture.trackId, gesture.clipId, { transform });
+    };
+    const end = () => {
+      visualGestureRef.current = null;
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+    };
+  }, [editor.updateClip]);
+
   const activeSubtitleCues = useMemo(
     () =>
       getActiveSubtitleCues(
@@ -335,6 +401,15 @@ export default function TimelineEditor({
       editor.project.tracks,
     ],
   );
+
+  const selectedVisual = useMemo(() => {
+    if (!editor.selectedClip || editor.selectedClip.track.type !== 'video')
+      return null;
+    return {
+      ...editor.selectedClip,
+      transform: getVisualTransform(editor.selectedClip.clip),
+    };
+  }, [editor.selectedClip]);
 
   useEffect(() => {
     if (!subtitleTimingDebug) return;
@@ -1089,13 +1164,32 @@ export default function TimelineEditor({
                     ).visible
                       ? 'visible'
                       : 'hidden',
-                    transform:
-                      [
-                        clip.mirrorX ? 'scaleX(-1)' : '',
-                        clip.flipY ? 'scaleY(-1)' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ') || undefined,
+                    left: '50%',
+                    top: '50%',
+                    width: '100%',
+                    height: '100%',
+                    opacity: getVisualTransform(clip).opacity,
+                    transform: `translate(calc(-50% + ${getVisualTransform(clip).x * 100}%), calc(-50% + ${getVisualTransform(clip).y * 100}%)) scale(${getVisualTransform(clip).scaleX * (getVisualTransform(clip).mirrorX ? -1 : 1)}, ${getVisualTransform(clip).scaleY * (getVisualTransform(clip).flipY ? -1 : 1)}) rotate(${getVisualTransform(clip).rotation}deg)`,
+                  }}
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                    const rect = previewRef.current?.getBoundingClientRect();
+                    if (!rect) return;
+                    editor.setSelectedClipId(clip.id);
+                    visualGestureRef.current = {
+                      trackId: editor.project.tracks.find((item) =>
+                        item.clips.some(
+                          (candidate) => candidate.id === clip.id,
+                        ),
+                      )!.id,
+                      clipId: clip.id,
+                      mode: 'move',
+                      originX: event.clientX,
+                      originY: event.clientY,
+                      width: rect.width,
+                      height: rect.height,
+                      transform: getVisualTransform(clip),
+                    };
                   }}
                   onLoadedMetadata={(event) =>
                     syncMediaElement(event.currentTarget, editor.isPlaying)
@@ -1110,6 +1204,37 @@ export default function TimelineEditor({
                 />
               )),
             )}
+          {selectedVisual && (
+            <div
+              className="pointer-events-none absolute left-1/2 top-1/2 border border-sky-400 shadow-[0_0_0_1px_rgba(14,165,233,0.35)]"
+              style={{
+                width: `${selectedVisual.transform.scaleX * 100}%`,
+                height: `${selectedVisual.transform.scaleY * 100}%`,
+                opacity: selectedVisual.transform.opacity,
+                transform: `translate(calc(-50% + ${selectedVisual.transform.x * 100}%), calc(-50% + ${selectedVisual.transform.y * 100}%)) rotate(${selectedVisual.transform.rotation}deg)`,
+              }}
+            >
+              <button
+                aria-label="Resize selected visual layer"
+                className="pointer-events-auto absolute -bottom-1.5 -right-1.5 h-3 w-3 cursor-nwse-resize rounded-sm bg-sky-400"
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                  const rect = previewRef.current?.getBoundingClientRect();
+                  if (!rect) return;
+                  visualGestureRef.current = {
+                    trackId: selectedVisual.track.id,
+                    clipId: selectedVisual.clip.id,
+                    mode: 'resize',
+                    originX: event.clientX,
+                    originY: event.clientY,
+                    width: rect.width,
+                    height: rect.height,
+                    transform: selectedVisual.transform,
+                  };
+                }}
+              />
+            </div>
+          )}
           {editor.project.tracks
             .filter((track) => track.type === 'audio')
             .flatMap((track) =>
