@@ -198,15 +198,59 @@ export interface MergeConfig {
 export type TimelineTrackType = 'video' | 'audio' | 'subtitle';
 export type SubtitleTimingMode = 'absolute' | 'linked-video' | 'playhead';
 
+export const TIMELINE_SCHEMA_VERSION = 2;
+
+export interface TimelineTransform {
+  /** Normalized canvas coordinates, where 0..1 is the project viewport. */
+  x: number;
+  y: number;
+  scaleX: number;
+  scaleY: number;
+  rotation: number;
+  mirrorX: boolean;
+  flipY: boolean;
+  opacity: number;
+}
+
+export interface TimelineAsset {
+  id: string;
+  sourceFile: string;
+  kind: 'video' | 'audio' | 'image' | 'subtitle' | 'unknown';
+  duration?: number;
+  width?: number;
+  height?: number;
+  probeStatus?: 'unknown' | 'ready' | 'error';
+}
+
+export interface TimelineEffect {
+  id: string;
+  type: 'blur';
+  startTime: number;
+  duration: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  blurAmount: number;
+  feather: number;
+}
+
 export interface TimelineSubtitleCue {
   id: string;
   text: string;
   sourceStartSec: number;
   sourceEndSec: number;
+  style?: Partial<SubtitleStyle>;
+  position?: { x: number; y: number };
 }
 
 export interface TimelineClip {
   id: string;
+  /** Stable asset reference added by the versioned project migration. */
+  assetId?: string;
+  /** Track ownership is explicit after migration; legacy projects infer it. */
+  trackId?: string;
+  type?: TimelineTrackType;
   source: string;
   sourceFile: string;
   startTime: number;
@@ -219,6 +263,8 @@ export interface TimelineClip {
   /** Clip-local visual transforms. Optional for backwards-compatible project loading. */
   mirrorX?: boolean;
   flipY?: boolean;
+  transform?: TimelineTransform;
+  effects?: TimelineEffect[];
   metadata?: {
     generator?: string;
     modelId?: string;
@@ -252,9 +298,11 @@ export interface TimelineTrack {
 }
 
 export interface TimelineProject {
+  schemaVersion?: number;
   duration: number;
   currentTime: number;
   tracks: TimelineTrack[];
+  assets?: Record<string, TimelineAsset>;
 }
 
 export interface TimelineExportConfig {

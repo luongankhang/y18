@@ -7,6 +7,7 @@ import type {
 } from '../../../../types/subtitleMerge';
 import { getSequentialClipStartTimes } from '../../../lib/timelineQueue';
 import { splitTimelineClip } from '../../../lib/timelineEditing';
+import { normalizeTimelineProject } from '../../../../types/timelineProject';
 
 const MIN_CLIP_DURATION = 0.05;
 
@@ -63,22 +64,21 @@ export function useTimelineEditor(
 ) {
   const [project, setProject] = useState<TimelineProject>(() =>
     initialProject
-      ? {
-          ...initialProject,
-          duration: Math.max(
-            1,
-            initialProject.duration || initialDuration || 1,
-          ),
-          tracks: initialProject.tracks.map((track) => ({
-            ...track,
-            clips: track.clips.map((clip) =>
-              clampClip(
-                clip,
-                Math.max(1, initialProject.duration || initialDuration || 1),
+      ? (() => {
+          const migrated = normalizeTimelineProject(
+            initialProject,
+            initialDuration,
+          );
+          return {
+            ...migrated,
+            tracks: migrated.tracks.map((track) => ({
+              ...track,
+              clips: track.clips.map((clip) =>
+                clampClip(clip, migrated.duration),
               ),
-            ),
-          })),
-        }
+            })),
+          };
+        })()
       : {
           duration: Math.max(1, initialDuration || 1),
           currentTime: 0,
