@@ -43,3 +43,27 @@ test('video export graph consumes normalized visual transform fields', () => {
   assert.match(graph, /colorchannelmixer=aa=0\.75/);
   assert.match(graph, /\+384:\(oh-ih\)\/2\+-108/);
 });
+
+test('video export graph applies a bounded blur mask to the composed output', () => {
+  const track = {
+    id: 'video',
+    type: 'video' as const,
+    name: 'Video',
+    order: 0,
+    muted: false,
+    hidden: false,
+    locked: false,
+    volume: 1,
+    clips: [],
+  };
+  const graph = buildTimelineVideoGraph([track], 5, 1920, 1080, 30, {
+    enabled: true,
+    xPercent: 10,
+    yPercent: 20,
+    widthPercent: 30,
+    heightPercent: 25,
+    strength: 12,
+  });
+  assert.match(graph, /crop=576:270:192:216/);
+  assert.match(graph, /boxblur=luma_radius=12/);
+});

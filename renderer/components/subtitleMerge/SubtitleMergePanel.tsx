@@ -139,19 +139,25 @@ export default function SubtitleMergePanel({
 
   const handleTimelineProjectChange = useCallback(
     (project: TimelineProject) => {
-      setTimelineProject(project);
+      const projectWithPresentation: TimelineProject = {
+        ...project,
+        subtitleStyle: style,
+        blurMask,
+        customTextOverlay,
+      };
+      setTimelineProject(projectWithPresentation);
       if (videoPath) {
         try {
           window.localStorage.setItem(
             `y18.timeline.${videoPath}`,
-            JSON.stringify(project),
+            JSON.stringify(projectWithPresentation),
           );
         } catch {
           // Storage may be unavailable in restricted/private renderer contexts.
         }
       }
     },
-    [videoPath],
+    [blurMask, customTextOverlay, style, videoPath],
   );
 
   useEffect(() => {
@@ -231,6 +237,7 @@ export default function SubtitleMergePanel({
               ? exportSettings.customFps
               : videoInfo?.fps,
           subtitleStyle: style,
+          blurMask,
           renderMode: exportSettings.renderMode,
         });
         if (!result.success)
@@ -358,6 +365,8 @@ export default function SubtitleMergePanel({
             videoPath={videoPath}
             subtitlePath={subtitlePath}
             duration={videoInfo?.duration || preview.duration}
+            subtitleStyle={style}
+            blurMask={blurMask}
             initialProject={savedTimelineProject}
             disabled={isProcessing}
             onProjectChange={handleTimelineProjectChange}

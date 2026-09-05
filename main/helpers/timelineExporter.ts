@@ -111,6 +111,8 @@ export async function exportTimeline(
   const height = Math.max(2, Math.round(config.height || 1080));
   const fps = Math.max(1, Math.min(120, safeNumber(config.fps || 30, 30)));
   const tracks = project.tracks;
+  const subtitleStyle = config.subtitleStyle || project.subtitleStyle;
+  const blurMask = config.blurMask || project.blurMask;
   const clips = tracks.flatMap((track) =>
     track.clips.map((clip) => ({ track, clip })),
   );
@@ -146,12 +148,19 @@ export async function exportTimeline(
   );
   const subtitleFile = await createTimelineSubtitle(project);
   const graphParts = [
-    buildTimelineVideoGraph(videoTracks, duration, width, height, fps),
+    buildTimelineVideoGraph(
+      videoTracks,
+      duration,
+      width,
+      height,
+      fps,
+      blurMask,
+    ),
     buildTimelineAudioGraph(mediaTracks, duration),
   ];
   if (subtitleFile) {
-    const style = config.subtitleStyle
-      ? `:force_style='${buildForceStyle(config.subtitleStyle)}'`
+    const style = subtitleStyle
+      ? `:force_style='${buildForceStyle(subtitleStyle)}'`
       : '';
     graphParts.push(
       `[outv]subtitles='${escapeSubtitlePath(subtitleFile)}'${style}[finalv]`,

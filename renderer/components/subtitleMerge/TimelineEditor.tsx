@@ -33,6 +33,8 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type {
+  SubtitleBlurMask,
+  SubtitleStyle,
   SubtitleTimingMode,
   TimelineProject,
   TimelineSubtitleCue,
@@ -53,11 +55,17 @@ import {
   getTimelinePlaybackState,
 } from '../../lib/timelinePlayback';
 import { buildTimedTtsClipInputs } from '../../lib/timelineTts';
+import {
+  getBlurMaskPreviewStyle,
+  subtitleStyleToCSS,
+} from './utils/styleUtils';
 
 interface TimelineEditorProps {
   videoPath: string | null;
   subtitlePath: string | null;
   duration: number;
+  subtitleStyle?: SubtitleStyle;
+  blurMask?: SubtitleBlurMask;
   disabled?: boolean;
   onProjectChange?: (
     project: ReturnType<typeof useTimelineEditor>['project'],
@@ -141,6 +149,8 @@ export default function TimelineEditor({
   videoPath,
   subtitlePath,
   duration,
+  subtitleStyle,
+  blurMask,
   disabled = false,
   onProjectChange,
   initialProject,
@@ -1235,6 +1245,12 @@ export default function TimelineEditor({
               />
             </div>
           )}
+          {blurMask?.enabled && (
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={getBlurMaskPreviewStyle(blurMask)}
+            />
+          )}
           {editor.project.tracks
             .filter((track) => track.type === 'audio')
             .flatMap((track) =>
@@ -1261,7 +1277,10 @@ export default function TimelineEditor({
             <div
               key={`${cue.trackId}-${cue.clipId}-${cue.cueId}`}
               className="pointer-events-none absolute inset-x-4 whitespace-pre-wrap text-center text-lg font-semibold text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.9)]"
-              style={{ bottom: `${24 + index * 34}px` }}
+              style={{
+                ...(subtitleStyle ? subtitleStyleToCSS(subtitleStyle, 1) : {}),
+                bottom: `${24 + index * 34}px`,
+              }}
               data-subtitle-cue={cue.cueId}
             >
               {cue.text}

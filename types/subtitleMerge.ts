@@ -303,6 +303,9 @@ export interface TimelineProject {
   currentTime: number;
   tracks: TimelineTrack[];
   assets?: Record<string, TimelineAsset>;
+  subtitleStyle?: SubtitleStyle;
+  blurMask?: SubtitleBlurMask;
+  customTextOverlay?: CustomTextOverlay;
 }
 
 export interface TimelineExportConfig {
@@ -312,6 +315,7 @@ export interface TimelineExportConfig {
   height?: number;
   fps?: number;
   subtitleStyle?: SubtitleStyle;
+  blurMask?: SubtitleBlurMask;
   renderMode?: 'cpu' | 'gpu';
 }
 

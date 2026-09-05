@@ -1,4 +1,8 @@
-import type { TimelineClip, TimelineTrack } from '../../types/subtitleMerge';
+import type {
+  SubtitleBlurMask,
+  TimelineClip,
+  TimelineTrack,
+} from '../../types/subtitleMerge';
 
 export type IndexedTimelineClip = TimelineClip & {
   inputIndex: number;
@@ -18,6 +22,7 @@ export function buildTimelineVideoGraph(
   width: number,
   height: number,
   fps: number,
+  blurMask?: SubtitleBlurMask,
 ): string {
   const graph = [
     `color=c=black:s=${width}x${height}:r=${fps}:d=${duration}[base]`,
@@ -68,6 +73,17 @@ export function buildTimelineVideoGraph(
       );
       current = next;
     }
+  }
+  if (blurMask?.enabled) {
+    const x = Math.round((width * blurMask.xPercent) / 100);
+    const y = Math.round((height * blurMask.yPercent) / 100);
+    const w = Math.max(2, Math.round((width * blurMask.widthPercent) / 100));
+    const h = Math.max(2, Math.round((height * blurMask.heightPercent) / 100));
+    const strength = Math.max(1, Math.round(blurMask.strength));
+    graph.push(
+      `[${current}]split=2[clean][blur-source];[blur-source]crop=${w}:${h}:${x}:${y},boxblur=luma_radius=${strength}:luma_power=1[blurred];[clean][blurred]overlay=${x}:${y}:format=auto[blurred-out]`,
+    );
+    current = 'blurred-out';
   }
   graph.push(`[${current}]format=yuv420p[outv]`);
   return graph.join(';');
