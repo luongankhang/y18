@@ -110,8 +110,17 @@ export function buildTimelineAudioGraph(
         (end - clip.startTime) * playbackRate,
       );
       const delay = Math.round(Math.max(0, clip.startTime) * 1000);
+      const clipDuration = Math.max(0.001, end - clip.startTime);
+      const fadeFilters = [
+        clip.fadeIn && clip.fadeIn > 0
+          ? `afade=t=in:st=0:d=${Math.min(clip.fadeIn, clipDuration)}`
+          : '',
+        clip.fadeOut && clip.fadeOut > 0
+          ? `afade=t=out:st=${Math.max(0, clipDuration - clip.fadeOut)}:d=${Math.min(clip.fadeOut, clipDuration)}`
+          : '',
+      ].filter(Boolean);
       parts.push(
-        `[${audioClip.inputIndex}:a]atrim=start=${Math.max(0, clip.trimStart)}:duration=${sourceDuration},asetpts=PTS-STARTPTS,atempo=${playbackRate},adelay=${delay}|${delay},volume=${Math.max(0, track.volume * clip.volume)},aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[${label}]`,
+        `[${audioClip.inputIndex}:a]atrim=start=${Math.max(0, clip.trimStart)}:duration=${sourceDuration},asetpts=PTS-STARTPTS,atempo=${playbackRate},${fadeFilters.length ? `${fadeFilters.join(',')},` : ''}adelay=${delay}|${delay},volume=${Math.max(0, track.volume * clip.volume)},aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[${label}]`,
       );
     }
   }

@@ -260,6 +260,8 @@ export interface TimelineClip {
   /** Source playback speed. A 2x clip occupies half its source duration. */
   playbackRate?: number;
   volume: number;
+  fadeIn?: number;
+  fadeOut?: number;
   /** Clip-local visual transforms. Optional for backwards-compatible project loading. */
   mirrorX?: boolean;
   flipY?: boolean;

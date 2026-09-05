@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildTimelineVideoGraph } from '../../../main/helpers/timelineFilterGraph.ts';
+import {
+  buildTimelineAudioGraph,
+  buildTimelineVideoGraph,
+} from '../../../main/helpers/timelineFilterGraph.ts';
 import type { TimelineTrack } from '../../../types/subtitleMerge.ts';
 
 test('video export graph consumes normalized visual transform fields', () => {
@@ -66,4 +69,40 @@ test('video export graph applies a bounded blur mask to the composed output', ()
   });
   assert.match(graph, /crop=576:270:192:216/);
   assert.match(graph, /boxblur=luma_radius=12/);
+});
+
+test('audio export graph applies clip fade envelopes before mixing', () => {
+  const graph = buildTimelineAudioGraph(
+    [
+      {
+        id: 'audio',
+        type: 'audio',
+        name: 'Audio',
+        order: 0,
+        muted: false,
+        hidden: false,
+        locked: false,
+        volume: 1,
+        clips: [
+          {
+            id: 'clip',
+            source: 'media://audio',
+            sourceFile: 'audio.wav',
+            startTime: 1,
+            duration: 3,
+            trimStart: 0,
+            trimEnd: 0,
+            volume: 1,
+            fadeIn: 0.25,
+            fadeOut: 0.4,
+            inputIndex: 0,
+            hasAudio: true,
+          } as any,
+        ],
+      },
+    ],
+    5,
+  );
+  assert.match(graph, /afade=t=in:st=0:d=0\.25/);
+  assert.match(graph, /afade=t=out:st=2\.6:d=0\.4/);
 });

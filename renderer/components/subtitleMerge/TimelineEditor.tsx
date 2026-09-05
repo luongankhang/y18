@@ -352,6 +352,7 @@ export default function TimelineEditor({
     };
     const end = () => {
       trimGestureRef.current = null;
+      editor.commitEditTransaction();
     };
     window.addEventListener('mousemove', move);
     window.addEventListener('mouseup', end);
@@ -359,7 +360,7 @@ export default function TimelineEditor({
       window.removeEventListener('mousemove', move);
       window.removeEventListener('mouseup', end);
     };
-  }, [editor.trimClip, pxPerSecond]);
+  }, [editor.commitEditTransaction, editor.trimClip, pxPerSecond]);
 
   useEffect(() => {
     const move = (event: PointerEvent) => {
@@ -389,6 +390,7 @@ export default function TimelineEditor({
     };
     const end = () => {
       visualGestureRef.current = null;
+      editor.commitEditTransaction();
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', end);
@@ -396,7 +398,7 @@ export default function TimelineEditor({
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', end);
     };
-  }, [editor.updateClip]);
+  }, [editor.commitEditTransaction, editor.updateClip]);
 
   const activeSubtitleCues = useMemo(
     () =>
@@ -1185,6 +1187,7 @@ export default function TimelineEditor({
                     event.stopPropagation();
                     const rect = previewRef.current?.getBoundingClientRect();
                     if (!rect) return;
+                    editor.beginEditTransaction();
                     editor.setSelectedClipId(clip.id);
                     visualGestureRef.current = {
                       trackId: editor.project.tracks.find((item) =>
@@ -1231,6 +1234,7 @@ export default function TimelineEditor({
                   event.stopPropagation();
                   const rect = previewRef.current?.getBoundingClientRect();
                   if (!rect) return;
+                  editor.beginEditTransaction();
                   visualGestureRef.current = {
                     trackId: selectedVisual.track.id,
                     clipId: selectedVisual.clip.id,
@@ -1603,6 +1607,7 @@ export default function TimelineEditor({
                         className="absolute inset-y-0 left-0 z-10 w-2 cursor-ew-resize bg-sky-500/40 opacity-0 transition-opacity hover:opacity-100"
                         onMouseDown={(event) => {
                           event.stopPropagation();
+                          editor.beginEditTransaction();
                           trimGestureRef.current = {
                             trackId: track.id,
                             clipId: clip.id,
@@ -1616,6 +1621,7 @@ export default function TimelineEditor({
                         className="absolute inset-y-0 right-0 z-10 w-2 cursor-ew-resize bg-sky-500/40 opacity-0 transition-opacity hover:opacity-100"
                         onMouseDown={(event) => {
                           event.stopPropagation();
+                          editor.beginEditTransaction();
                           trimGestureRef.current = {
                             trackId: track.id,
                             clipId: clip.id,
@@ -1770,6 +1776,44 @@ export default function TimelineEditor({
                   className="mt-1 w-full rounded border bg-transparent p-1"
                 />
               </label>
+              {editor.selectedClip.track.type === 'audio' && (
+                <>
+                  <label>
+                    Fade in (s)
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.05}
+                      value={editor.selectedClip.clip.fadeIn || 0}
+                      onChange={(event) =>
+                        editor.updateClip(
+                          editor.selectedClip!.track.id,
+                          editor.selectedClip!.clip.id,
+                          { fadeIn: Math.max(0, Number(event.target.value)) },
+                        )
+                      }
+                      className="mt-1 w-full rounded border bg-transparent p-1"
+                    />
+                  </label>
+                  <label>
+                    Fade out (s)
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.05}
+                      value={editor.selectedClip.clip.fadeOut || 0}
+                      onChange={(event) =>
+                        editor.updateClip(
+                          editor.selectedClip!.track.id,
+                          editor.selectedClip!.clip.id,
+                          { fadeOut: Math.max(0, Number(event.target.value)) },
+                        )
+                      }
+                      className="mt-1 w-full rounded border bg-transparent p-1"
+                    />
+                  </label>
+                </>
+              )}
               <label>
                 Speed
                 <input

@@ -97,6 +97,10 @@ export function useTimelineEditor(
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
   const undoStackRef = useRef<TimelineProject[]>([]);
   const redoStackRef = useRef<TimelineProject[]>([]);
+  const transactionRef = useRef<{
+    baseline: TimelineProject;
+    changed: boolean;
+  } | null>(null);
 
   useEffect(() => {
     setProject((prev) => {
@@ -188,12 +192,33 @@ export function useTimelineEditor(
       setProject((prev) => {
         const next = updater(prev);
         if (next === prev) return prev;
-        undoStackRef.current = [...undoStackRef.current, prev].slice(-100);
+        if (transactionRef.current) {
+          transactionRef.current.changed = true;
+        } else {
+          undoStackRef.current = [...undoStackRef.current, prev].slice(-100);
+        }
         redoStackRef.current = [];
         return next;
       }),
     [],
   );
+  const beginEditTransaction = useCallback(() => {
+    setProject((current) => {
+      if (!transactionRef.current) {
+        transactionRef.current = { baseline: current, changed: false };
+      }
+      return current;
+    });
+  }, []);
+  const commitEditTransaction = useCallback(() => {
+    const transaction = transactionRef.current;
+    transactionRef.current = null;
+    if (!transaction?.changed) return;
+    undoStackRef.current = [
+      ...undoStackRef.current,
+      transaction.baseline,
+    ].slice(-100);
+  }, []);
   const addTrack = useCallback(
     (type: TimelineTrackType) =>
       updateProject((prev) => ({
@@ -642,6 +667,8 @@ export function useTimelineEditor(
     addClipsToTrack,
     hydrateSubtitleClip,
     updateClip,
+    beginEditTransaction,
+    commitEditTransaction,
     deleteClip,
     deleteTrack,
     trimClip,
