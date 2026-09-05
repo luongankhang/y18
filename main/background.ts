@@ -26,6 +26,7 @@ import { setupAppMenu } from './helpers/menu';
 import { setupQuitGuard } from './helpers/quitGuard';
 import { setupTerminalHandlers } from './helpers/ipcTerminalHandlers';
 import { setupVoiceSeparationHandlers } from './helpers/ipcVoiceSeparationHandlers';
+import { setupOmniVoiceHandlers } from './helpers/ipcOmniVoiceHandlers';
 
 //控制台出现中文乱码，需要去node_modules\electron\cli.js中修改启动代码页
 
@@ -57,6 +58,7 @@ if (isProd) {
   setupProofreadHandlers();
   setupFfmpegHandlers();
   setupVoiceSeparationHandlers();
+  setupOmniVoiceHandlers();
   registerAddonIpcHandlers();
 
   // Initialize configuration manager
@@ -87,7 +89,11 @@ if (isProd) {
   });
 
   if (isProd) {
-    await mainWindow.loadURL(`app://./${userLanguage}/home/`);
+    const initialRoute =
+      process.env.Y18_E2E === '1'
+        ? 'vi/subtitleMerge/'
+        : `${userLanguage}/home/`;
+    await mainWindow.loadURL(`app://./${initialRoute}`);
   } else {
     const port = process.argv[2];
     await mainWindow.loadURL(`http://localhost:${port}/${userLanguage}/home/`);
@@ -98,7 +104,7 @@ if (isProd) {
   mainWindow.webContents.session.setSpellCheckerEnabled(true);
 
   setupAppMenu(mainWindow);
-  setupQuitGuard(mainWindow);
+  if (process.env.Y18_E2E !== '1') setupQuitGuard(mainWindow);
   setupTerminalHandlers(mainWindow);
   setupIpcHandlers(mainWindow);
   setupTaskProcessor(mainWindow);

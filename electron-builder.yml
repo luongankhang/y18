@@ -28,6 +28,8 @@ mac:
         - '**/*'
     - from: ./extraResources/ggml-silero-v6.2.0.bin
       to: ./extraResources/ggml-silero-v6.2.0.bin
+    - from: ./scripts/omnivoice_worker.py
+      to: ./omnivoice_worker.py
 win:
   target:
     - nsis
@@ -42,6 +44,8 @@ win:
         - '**/*'
     - from: ./extraResources/ggml-silero-v6.2.0.bin
       to: ./extraResources/ggml-silero-v6.2.0.bin
+    - from: ./scripts/omnivoice_worker.py
+      to: ./omnivoice_worker.py
   requestedExecutionLevel: asInvoker
   artifactName: '${productName}_Windows_${version}_${arch}.${ext}'
   publish:
@@ -64,6 +68,8 @@ linux:
         - '**/*'
     - from: ./extraResources/ggml-silero-v6.2.0.bin
       to: ./extraResources/ggml-silero-v6.2.0.bin
+    - from: ./scripts/omnivoice_worker.py
+      to: ./omnivoice_worker.py
 nsis:
   oneClick: false
   perMachine: false
@@ -71,6 +77,10 @@ nsis:
   deleteAppDataOnUninstall: true
   differentialPackage: false
 asarUnpack:
+  - 'node_modules/ffprobe-static/bin/${os}/${arch}/ffprobe'
+  - 'node_modules/ffprobe-static/bin/${os}/${arch}/ffprobe.exe'
+  - 'node_modules/ffprobe-static/index.js'
+  - 'node_modules/ffprobe-static/package.json'
   - 'node_modules/ffmpeg-static/bin/${os}/${arch}/ffmpeg'
   - 'node_modules/ffmpeg-static/index.js'
   - 'node_modules/ffmpeg-static/package.json'

@@ -17,3 +17,11 @@ sample
 .specs/
 .agents/
 extraResources
+tools/
+.venv-omnivoice/
+test-artifacts/
+.uv-cache/
+test-results/
+omnivoice-cache/
+*.wav.tmp
+__pycache__/

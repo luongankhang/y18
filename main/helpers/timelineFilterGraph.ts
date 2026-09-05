@@ -6,7 +6,10 @@ export type IndexedTimelineClip = TimelineClip & {
 };
 
 export function getEffectiveClipDuration(clip: TimelineClip): number {
-  return Math.max(0.001, clip.duration - clip.trimEnd);
+  return (
+    Math.max(0.001, clip.duration - clip.trimEnd) /
+    Math.max(0.0001, clip.playbackRate || 1)
+  );
 }
 
 export function buildTimelineVideoGraph(
@@ -27,12 +30,24 @@ export function buildTimelineVideoGraph(
     if (track.hidden) continue;
     for (const clip of track.clips) {
       const inputIndex = (clip as IndexedTimelineClip).inputIndex;
-      const sourceDuration = getEffectiveClipDuration(clip);
+      const timelineDuration = getEffectiveClipDuration(clip);
+      const playbackRate = Math.max(0.5, Math.min(2, clip.playbackRate || 1));
       const next = `v${layer++}`;
       const clipLabel = `clip${layer}`;
-      const end = Math.min(duration, clip.startTime + sourceDuration);
+      const end = Math.min(duration, clip.startTime + timelineDuration);
+      const sourceDuration = Math.max(
+        0.001,
+        (end - clip.startTime) * playbackRate,
+      );
+      const visualFilters = [
+        clip.mirrorX ? 'hflip' : '',
+        clip.flipY ? 'vflip' : '',
+      ].filter(Boolean);
+      const transform = visualFilters.length
+        ? `,${visualFilters.join(',')}`
+        : '';
       graph.push(
-        `[${inputIndex}:v]trim=start=${Math.max(0, clip.trimStart)}:duration=${Math.max(0.001, end - clip.startTime)},setpts=PTS-STARTPTS+${Math.max(0, clip.startTime)}/TB,scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2[${clipLabel}]`,
+        `[${inputIndex}:v]trim=start=${Math.max(0, clip.trimStart)}:duration=${sourceDuration},setpts=(PTS-STARTPTS)/${playbackRate}+${Math.max(0, clip.startTime)}/TB${transform},scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2[${clipLabel}]`,
       );
       graph.push(
         `[${current}][${clipLabel}]overlay=shortest=0:eof_action=pass:format=auto[${next}]`,
@@ -58,10 +73,15 @@ export function buildTimelineAudioGraph(
       if (!audioClip.hasAudio) continue;
       const label = `a${count++}`;
       const effectiveDuration = getEffectiveClipDuration(clip);
+      const playbackRate = Math.max(0.5, Math.min(2, clip.playbackRate || 1));
       const end = Math.min(duration, clip.startTime + effectiveDuration);
+      const sourceDuration = Math.max(
+        0.001,
+        (end - clip.startTime) * playbackRate,
+      );
       const delay = Math.round(Math.max(0, clip.startTime) * 1000);
       parts.push(
-        `[${audioClip.inputIndex}:a]atrim=start=${Math.max(0, clip.trimStart)}:duration=${Math.max(0.001, end - clip.startTime)},asetpts=PTS-STARTPTS,adelay=${delay}|${delay},volume=${Math.max(0, track.volume * clip.volume)},aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[${label}]`,
+        `[${audioClip.inputIndex}:a]atrim=start=${Math.max(0, clip.trimStart)}:duration=${sourceDuration},asetpts=PTS-STARTPTS,atempo=${playbackRate},adelay=${delay}|${delay},volume=${Math.max(0, track.volume * clip.volume)},aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[${label}]`,
       );
     }
   }

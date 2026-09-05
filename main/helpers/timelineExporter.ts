@@ -6,7 +6,11 @@ import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { logMessage } from './storeManager';
-import { detectSubtitleFormat, parseSubtitleEntries } from './subtitleFormats';
+import {
+  detectSubtitleFormat,
+  parseStartEndTime,
+  parseSubtitleEntries,
+} from './subtitleFormats';
 import { escapeSubtitlePath, buildForceStyle } from './subtitleMerger';
 import {
   buildTimelineAudioGraph,
@@ -14,6 +18,7 @@ import {
   type IndexedTimelineClip,
 } from './timelineFilterGraph';
 import type { TimelineExportConfig } from '../../types/subtitleMerge';
+import { serializeProjectSubtitleSrt } from '../../types/timelineSubtitle';
 
 const ffmpegPath = ffmpegStatic.replace('app.asar', 'app.asar.unpacked');
 ffmpeg.setFfmpegPath(ffmpegPath);
@@ -47,63 +52,51 @@ function safeNumber(value: number, fallback = 0): number {
   return Number.isFinite(value) ? value : fallback;
 }
 
-function srtTime(seconds: number): string {
-  const ms = Math.max(0, Math.round(seconds * 1000));
-  const h = Math.floor(ms / 3600000);
-  const m = Math.floor((ms % 3600000) / 60000);
-  const s = Math.floor((ms % 60000) / 1000);
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')},${String(ms % 1000).padStart(3, '0')}`;
-}
-
-function parseTime(value: string): number {
-  const match = value.match(/(\d+):(\d{2}):(\d{2})[,.](\d{3})/);
-  if (!match) return 0;
-  return (
-    Number(match[1]) * 3600 +
-    Number(match[2]) * 60 +
-    Number(match[3]) +
-    Number(match[4]) / 1000
-  );
-}
-
-async function createTimelineSubtitle(
+export async function createTimelineSubtitle(
   project: TimelineExportConfig['project'],
 ): Promise<string | null> {
-  const cues: Array<{ start: number; end: number; text: string }> = [];
-  const tracks = project.tracks.filter((track) => track.type === 'subtitle');
-  for (const track of tracks) {
-    for (const clip of track.clips) {
-      if (!fs.existsSync(clip.sourceFile)) continue;
-      const entries = parseSubtitleEntries(
-        await fs.promises.readFile(clip.sourceFile, 'utf8'),
-        detectSubtitleFormat(clip.sourceFile),
-      );
-      for (const entry of entries) {
-        const [startRaw, endRaw] = entry.startEndTime.split(/\s+-->\s+/);
-        const start = clip.startTime + parseTime(startRaw) - clip.trimStart;
-        const end = clip.startTime + parseTime(endRaw) - clip.trimStart;
-        if (end > start && end > 0 && start < project.duration) {
-          cues.push({
-            start: Math.max(0, start),
-            end: Math.min(project.duration, end),
-            text: entry.content.join('\n'),
-          });
-        }
-      }
-    }
-  }
-  if (!cues.length) return null;
+  const hydratedProject = {
+    ...project,
+    tracks: await Promise.all(
+      project.tracks.map(async (track) => ({
+        ...track,
+        clips: await Promise.all(
+          track.clips.map(async (clip) => {
+            if (
+              track.type !== 'subtitle' ||
+              clip.subtitleCues ||
+              !fs.existsSync(clip.sourceFile)
+            )
+              return clip;
+            const entries = parseSubtitleEntries(
+              await fs.promises.readFile(clip.sourceFile, 'utf8'),
+              detectSubtitleFormat(clip.sourceFile),
+            );
+            return {
+              ...clip,
+              subtitleTimingMode:
+                clip.subtitleTimingMode || ('absolute' as const),
+              subtitleCues: entries.map((entry, index) => {
+                const range = parseStartEndTime(entry.startEndTime);
+                return {
+                  id: entry.id || `cue-${index}`,
+                  text: entry.content.join('\n'),
+                  sourceStartSec: range.startMs / 1000,
+                  sourceEndSec: range.endMs / 1000,
+                };
+              }),
+            };
+          }),
+        ),
+      })),
+    ),
+  };
+  const content = serializeProjectSubtitleSrt(hydratedProject);
+  if (!content) return null;
   const file = path.join(
     os.tmpdir(),
     `y18-timeline-${Date.now()}-${Math.random().toString(16).slice(2)}.srt`,
   );
-  const content = cues
-    .sort((a, b) => a.start - b.start)
-    .map(
-      (cue, index) =>
-        `${index + 1}\n${srtTime(cue.start)} --> ${srtTime(cue.end)}\n${cue.text}\n`,
-    )
-    .join('\n');
   await fs.promises.writeFile(file, content, 'utf8');
   return file;
 }

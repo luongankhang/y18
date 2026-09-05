@@ -117,8 +117,42 @@ export default function SubtitleMergePanel({
   const preview = useMergePreviewSession(subtitlePath, style, videoInfo?.width);
   const [timelineProject, setTimelineProject] =
     useState<TimelineProject | null>(null);
+  const [savedTimelineProject, setSavedTimelineProject] =
+    useState<TimelineProject | null>(null);
   const [timelineExporting, setTimelineExporting] = useState(false);
   const [timelineExportPercent, setTimelineExportPercent] = useState(0);
+
+  useEffect(() => {
+    if (!videoPath || typeof window === 'undefined') {
+      setSavedTimelineProject(null);
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(`y18.timeline.${videoPath}`);
+      setSavedTimelineProject(
+        raw ? (JSON.parse(raw) as TimelineProject) : null,
+      );
+    } catch {
+      setSavedTimelineProject(null);
+    }
+  }, [videoPath]);
+
+  const handleTimelineProjectChange = useCallback(
+    (project: TimelineProject) => {
+      setTimelineProject(project);
+      if (videoPath) {
+        try {
+          window.localStorage.setItem(
+            `y18.timeline.${videoPath}`,
+            JSON.stringify(project),
+          );
+        } catch {
+          // Storage may be unavailable in restricted/private renderer contexts.
+        }
+      }
+    },
+    [videoPath],
+  );
 
   useEffect(() => {
     const cleanup = window.ipc?.on(
@@ -320,12 +354,13 @@ export default function SubtitleMergePanel({
 
         <div className="flex flex-col gap-3 min-h-0 overflow-hidden">
           <TimelineEditor
-            key={videoPath || 'timeline-empty'}
+            key={`${videoPath || 'timeline-empty'}:${savedTimelineProject ? 'saved' : 'new'}`}
             videoPath={videoPath}
             subtitlePath={subtitlePath}
             duration={videoInfo?.duration || preview.duration}
+            initialProject={savedTimelineProject}
             disabled={isProcessing}
-            onProjectChange={setTimelineProject}
+            onProjectChange={handleTimelineProjectChange}
           />
 
           <details className="group flex-shrink-0 rounded-lg border bg-card shadow-sm">

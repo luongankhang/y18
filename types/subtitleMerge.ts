@@ -196,6 +196,14 @@ export interface MergeConfig {
 }
 
 export type TimelineTrackType = 'video' | 'audio' | 'subtitle';
+export type SubtitleTimingMode = 'absolute' | 'linked-video' | 'playhead';
+
+export interface TimelineSubtitleCue {
+  id: string;
+  text: string;
+  sourceStartSec: number;
+  sourceEndSec: number;
+}
 
 export interface TimelineClip {
   id: string;
@@ -205,8 +213,27 @@ export interface TimelineClip {
   duration: number;
   trimStart: number;
   trimEnd: number;
+  /** Source playback speed. A 2x clip occupies half its source duration. */
+  playbackRate?: number;
   volume: number;
+  /** Clip-local visual transforms. Optional for backwards-compatible project loading. */
+  mirrorX?: boolean;
+  flipY?: boolean;
+  metadata?: {
+    generator?: string;
+    modelId?: string;
+    text?: string;
+    mode?: string;
+    language?: string;
+    speed?: number;
+    instruction?: string;
+    referenceAudio?: string;
+    generatedAt?: number;
+  };
   position?: { x: number; y: number; width?: number; height?: number };
+  subtitleCues?: TimelineSubtitleCue[];
+  subtitleTimingMode?: SubtitleTimingMode;
+  linkedVideoClipId?: string;
 }
 
 export interface TimelineTrack {

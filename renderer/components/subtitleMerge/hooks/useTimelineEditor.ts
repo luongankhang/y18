@@ -27,14 +27,31 @@ function makeTrack(type: TimelineTrackType, order: number): TimelineTrack {
 function clampClip(clip: TimelineClip, duration: number): TimelineClip {
   const maxStart = Math.max(0, duration - MIN_CLIP_DURATION);
   const startTime = Math.min(maxStart, Math.max(0, clip.startTime));
-  const maxDuration = Math.max(MIN_CLIP_DURATION, duration - startTime);
+  const playbackRate = Math.max(0.5, Math.min(2, clip.playbackRate || 1));
+  const maxDuration = Math.max(
+    MIN_CLIP_DURATION,
+    (duration - startTime) * playbackRate,
+  );
+  const clipDuration = Math.min(
+    maxDuration,
+    Math.max(MIN_CLIP_DURATION, clip.duration),
+  );
+  const minimumSourceSpan = MIN_CLIP_DURATION * playbackRate;
+  const trimStart = Math.max(0, clip.trimStart);
+  const trimEnd = Math.min(
+    Math.max(0, clip.trimEnd),
+    Math.max(0, clipDuration - minimumSourceSpan),
+  );
   return {
     ...clip,
     startTime,
-    duration: Math.min(maxDuration, Math.max(MIN_CLIP_DURATION, clip.duration)),
-    trimStart: Math.max(0, clip.trimStart),
-    trimEnd: Math.max(0, clip.trimEnd),
+    duration: clipDuration,
+    trimStart,
+    trimEnd,
+    playbackRate,
     volume: Math.max(0, Math.min(2, clip.volume)),
+    mirrorX: Boolean(clip.mirrorX),
+    flipY: Boolean(clip.flipY),
   };
 }
 
@@ -42,16 +59,36 @@ export function useTimelineEditor(
   videoPath: string | null,
   subtitlePath: string | null,
   initialDuration: number,
+  initialProject?: TimelineProject | null,
 ) {
-  const [project, setProject] = useState<TimelineProject>({
-    duration: Math.max(1, initialDuration || 1),
-    currentTime: 0,
-    tracks: [
-      makeTrack('video', 0),
-      makeTrack('audio', 1),
-      makeTrack('subtitle', 2),
-    ],
-  });
+  const [project, setProject] = useState<TimelineProject>(() =>
+    initialProject
+      ? {
+          ...initialProject,
+          duration: Math.max(
+            1,
+            initialProject.duration || initialDuration || 1,
+          ),
+          tracks: initialProject.tracks.map((track) => ({
+            ...track,
+            clips: track.clips.map((clip) =>
+              clampClip(
+                clip,
+                Math.max(1, initialProject.duration || initialDuration || 1),
+              ),
+            ),
+          })),
+        }
+      : {
+          duration: Math.max(1, initialDuration || 1),
+          currentTime: 0,
+          tracks: [
+            makeTrack('video', 0),
+            makeTrack('audio', 1),
+            makeTrack('subtitle', 2),
+          ],
+        },
+  );
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
   const undoStackRef = useRef<TimelineProject[]>([]);
@@ -81,7 +118,10 @@ export function useTimelineEditor(
           duration: Math.min(duration, initialDuration || duration),
           trimStart: 0,
           trimEnd: 0,
+          playbackRate: 1,
           volume: 1,
+          mirrorX: false,
+          flipY: false,
         };
         track.clips = [...track.clips, clampClip(clip, duration)];
       } else if (videoPath) {
@@ -125,6 +165,7 @@ export function useTimelineEditor(
             duration,
             trimStart: 0,
             trimEnd: 0,
+            playbackRate: 1,
             volume: 1,
           },
         ];
@@ -169,6 +210,8 @@ export function useTimelineEditor(
       sourceFile: string,
       clipDuration: number,
       type: TimelineTrackType,
+      startTime = 0,
+      metadata?: TimelineClip['metadata'],
     ) =>
       updateProject((prev) => {
         const track = prev.tracks.find((item) => item.id === trackId);
@@ -180,7 +223,7 @@ export function useTimelineEditor(
               ? sourceFile
               : `media://${encodeURIComponent(sourceFile)}`,
           sourceFile,
-          startTime: 0,
+          startTime,
           duration: Math.min(
             prev.duration,
             Math.max(MIN_CLIP_DURATION, clipDuration || prev.duration),
@@ -188,17 +231,120 @@ export function useTimelineEditor(
           trimStart: 0,
           trimEnd: 0,
           volume: 1,
+          mirrorX: false,
+          flipY: false,
+          metadata,
         };
+        const projectDuration = Math.max(
+          prev.duration,
+          startTime + clip.duration,
+        );
         return {
           ...prev,
+          duration: projectDuration,
           tracks: prev.tracks.map((item) =>
             item.id === trackId
-              ? { ...item, clips: [...item.clips, clip] }
+              ? {
+                  ...item,
+                  clips: [...item.clips, clampClip(clip, projectDuration)],
+                }
               : item,
           ),
         };
       }),
     [updateProject],
+  );
+  const addTimedClips = useCallback(
+    (
+      trackId: string,
+      items: Array<{
+        sourceFile: string;
+        duration: number;
+        startTime: number;
+        metadata?: TimelineClip['metadata'];
+        subtitleCues?: TimelineClip['subtitleCues'];
+        subtitleTimingMode?: TimelineClip['subtitleTimingMode'];
+        linkedVideoClipId?: string;
+      }>,
+      type: TimelineTrackType,
+    ) =>
+      updateProject((prev) => {
+        const track = prev.tracks.find((item) => item.id === trackId);
+        if (!track || track.locked || track.type !== type || !items.length)
+          return prev;
+        const clips: TimelineClip[] = items.map((item, index) => ({
+          id: `clip-${Date.now()}-${index}-${Math.random().toString(16).slice(2)}`,
+          source:
+            type === 'subtitle'
+              ? item.sourceFile
+              : `media://${encodeURIComponent(item.sourceFile)}`,
+          sourceFile: item.sourceFile,
+          startTime: Math.max(0, item.startTime),
+          duration: Math.max(MIN_CLIP_DURATION, item.duration),
+          trimStart: 0,
+          trimEnd: 0,
+          playbackRate: 1,
+          volume: 1,
+          mirrorX: false,
+          flipY: false,
+          metadata: item.metadata,
+          subtitleCues: item.subtitleCues,
+          subtitleTimingMode: item.subtitleTimingMode,
+          linkedVideoClipId: item.linkedVideoClipId,
+        }));
+        const projectDuration = Math.max(
+          prev.duration,
+          ...clips.map((clip) => clip.startTime + clip.duration),
+        );
+        return {
+          ...prev,
+          duration: projectDuration,
+          tracks: prev.tracks.map((item) =>
+            item.id === trackId
+              ? {
+                  ...item,
+                  clips: [
+                    ...item.clips,
+                    ...clips.map((clip) => clampClip(clip, projectDuration)),
+                  ],
+                }
+              : item,
+          ),
+        };
+      }),
+    [updateProject],
+  );
+  const hydrateSubtitleClip = useCallback(
+    (
+      trackId: string,
+      clipId: string,
+      subtitleCues: NonNullable<TimelineClip['subtitleCues']>,
+    ) =>
+      setProject((prev) => ({
+        ...prev,
+        tracks: prev.tracks.map((track) =>
+          track.id === trackId
+            ? {
+                ...track,
+                clips: track.clips.map((clip) =>
+                  clip.id === clipId && !clip.subtitleCues
+                    ? {
+                        ...clip,
+                        subtitleCues,
+                        subtitleTimingMode:
+                          clip.subtitleTimingMode || 'absolute',
+                        duration: Math.max(
+                          clip.duration,
+                          ...subtitleCues.map((cue) => cue.sourceEndSec),
+                        ),
+                      }
+                    : clip,
+                ),
+              }
+            : track,
+        ),
+      })),
+    [],
   );
   const addClipsToTrack = useCallback(
     (
@@ -228,7 +374,10 @@ export function useTimelineEditor(
           ),
           trimStart: 0,
           trimEnd: 0,
+          playbackRate: 1,
           volume: 1,
+          mirrorX: false,
+          flipY: false,
         }));
         const projectDuration = Math.max(
           prev.duration,
@@ -248,21 +397,33 @@ export function useTimelineEditor(
   );
   const updateClip = useCallback(
     (trackId: string, clipId: string, patch: Partial<TimelineClip>) =>
-      updateProject((prev) => ({
-        ...prev,
-        tracks: prev.tracks.map((track) =>
-          track.id === trackId && !track.locked
-            ? {
-                ...track,
-                clips: track.clips.map((clip) =>
-                  clip.id === clipId
-                    ? clampClip({ ...clip, ...patch }, prev.duration)
-                    : clip,
-                ),
-              }
-            : track,
-        ),
-      })),
+      updateProject((prev) => {
+        const track = prev.tracks.find((item) => item.id === trackId);
+        const current = track?.clips.find((clip) => clip.id === clipId);
+        if (!track || track.locked || !current) return prev;
+        const candidate = { ...current, ...patch };
+        const rate = Math.max(0.5, Math.min(2, candidate.playbackRate || 1));
+        const timelineEnd =
+          Math.max(0, candidate.startTime) +
+          Math.max(0.05, candidate.duration - candidate.trimEnd) / rate;
+        const projectDuration = Math.max(prev.duration, timelineEnd);
+        return {
+          ...prev,
+          duration: projectDuration,
+          tracks: prev.tracks.map((item) =>
+            item.id === trackId
+              ? {
+                  ...item,
+                  clips: item.clips.map((clip) =>
+                    clip.id === clipId
+                      ? clampClip(candidate, projectDuration)
+                      : clip,
+                  ),
+                }
+              : item,
+          ),
+        };
+      }),
     [updateProject],
   );
   const deleteClip = useCallback(
@@ -425,7 +586,9 @@ export function useTimelineEditor(
     selectedClip,
     addTrack,
     addClip,
+    addTimedClips,
     addClipsToTrack,
+    hydrateSubtitleClip,
     updateClip,
     deleteClip,
     duplicateClip,

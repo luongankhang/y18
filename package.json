@@ -10,8 +10,13 @@
     "dev": "nextron",
     "build": "nextron build --no-pack",
     "build:local": "nextron build",
-    "test:timeline": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test main/helpers/__tests__/timelineFilterGraph.test.ts main/helpers/__tests__/timelineAudio.integration.test.ts renderer/lib/__tests__/timelinePlayback.test.ts",
+    "test:timeline": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test main/helpers/__tests__/timelineFilterGraph.test.ts main/helpers/__tests__/timelineAudio.integration.test.ts renderer/lib/__tests__/timelinePlayback.test.ts renderer/lib/__tests__/timelineSubtitles.test.ts",
     "test:voice": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test main/helpers/__tests__/voiceSeparationCore.test.ts main/helpers/__tests__/voiceVideo.integration.test.ts",
+    "test:omnivoice": "set UV_CACHE_DIR=.uv-cache&& .\\tools\\uv.exe run --python .venv-omnivoice\\Scripts\\python.exe python scripts\\omnivoice_smoke_test.py",
+    "test:omnivoice:worker": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test main/helpers/__tests__/omnivoiceWorker.test.ts",
+    "test:omnivoice:integration": "node scripts/omnivoice_worker_integration_test.mjs",
+    "test:e2e:omnivoice": "playwright test scripts/omnivoice.e2e.spec.ts --workers=1",
+    "test:e2e:omnivoice:live": "node scripts/omnivoice_live_ui_test.mjs",
     "runtime:demucs:windows": "powershell -ExecutionPolicy Bypass -File scripts/build-demucs-runtime.ps1",
     "postinstall": "electron-builder install-app-deps",
     "format": "prettier --write ."
@@ -83,6 +88,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^20.11.16",
     "@types/react": "^18.2.52",

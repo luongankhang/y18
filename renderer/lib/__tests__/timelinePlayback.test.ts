@@ -135,6 +135,17 @@ test('media sync seeks a paused or badly drifted active clip', () => {
   );
 });
 
+test('2x playback maps project time to source time and halves clip span', () => {
+  const fast = { ...baseClip, playbackRate: 2 };
+  const state = getTimelinePlaybackState(track('video'), fast, 6);
+  assert.equal(state.sourceTime, 6);
+  assert.equal(state.inRange, true);
+  assert.equal(
+    getTimelinePlaybackState(track('video'), fast, 7.5).inRange,
+    false,
+  );
+});
+
 test('video queue appends clips after the current stack without overlap', () => {
   const existing = [
     { ...baseClip, startTime: 2, duration: 3, trimEnd: 0 },

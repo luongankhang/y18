@@ -216,6 +216,20 @@ export function setupIpcHandlers(mainWindow: BrowserWindow) {
     }
   });
 
+  ipcMain.handle('readTextFile', async (_event, { filePath }) => {
+    if (!filePath || !fs.existsSync(filePath))
+      return { content: '', error: 'FILE_NOT_FOUND' };
+    try {
+      return { content: await fs.promises.readFile(filePath, 'utf-8') };
+    } catch (error) {
+      logMessage(
+        `读取文本文件错误: ${error instanceof Error ? error.message : String(error)}`,
+        'error',
+      );
+      return { content: '', error: 'FILE_READ_FAILED' };
+    }
+  });
+
   // 读取任意字幕文件并转换为 WebVTT 文本（供播放器内嵌字幕轨道使用）
   ipcMain.handle('getSubtitleAsVtt', async (event, { filePath }) => {
     try {
@@ -335,7 +349,7 @@ export function setupIpcHandlers(mainWindow: BrowserWindow) {
     'selectFile',
     async (
       event,
-      options: { type: 'video' | 'subtitle' | 'any'; title?: string },
+      options: { type: 'video' | 'subtitle' | 'text' | 'any'; title?: string },
     ) => {
       const { type, title } = options;
 
@@ -365,6 +379,15 @@ export function setupIpcHandlers(mainWindow: BrowserWindow) {
           {
             name: 'Subtitle Files',
             extensions: SUBTITLE_EXTENSIONS.map((ext) => ext.substring(1)),
+          },
+        ];
+      } else if (type === 'text') {
+        filters = [
+          {
+            name: 'Subtitle or text files',
+            extensions: [...SUBTITLE_EXTENSIONS, '.txt'].map((ext) =>
+              ext.substring(1),
+            ),
           },
         ];
       }

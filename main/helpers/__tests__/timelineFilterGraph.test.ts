@@ -129,3 +129,29 @@ test('omits hidden video tracks from the visual graph', () => {
   assert.doesNotMatch(graph, /\[0:v\]/);
   assert.match(graph, /\[base\]format=yuv420p\[outv\]/);
 });
+
+test('applies clip-local mirror and flip filters before overlay', () => {
+  const graph = buildTimelineVideoGraph(
+    [track('video', 0, [clip(0, { mirrorX: true, flipY: true })])],
+    10,
+    1280,
+    720,
+    30,
+  );
+  assert.match(graph, /trim=.*hflip,vflip,scale=/);
+  assert.doesNotMatch(graph, /\[0:a\].*hflip|\[0:a\].*vflip/);
+});
+
+test('applies the same playback rate to video frames and embedded audio', () => {
+  const fast = clip(0, { playbackRate: 2, duration: 8 });
+  const videoGraph = buildTimelineVideoGraph(
+    [track('video', 0, [fast])],
+    8,
+    640,
+    360,
+    24,
+  );
+  const audioGraph = buildTimelineAudioGraph([track('video', 0, [fast])], 8);
+  assert.match(videoGraph, /setpts=\(PTS-STARTPTS\)\/2/);
+  assert.match(audioGraph, /atempo=2/);
+});

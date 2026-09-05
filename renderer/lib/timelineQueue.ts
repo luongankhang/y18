@@ -1,4 +1,5 @@
 import type { TimelineClip } from '../../types/subtitleMerge';
+import { getTimelineClipDuration } from './timelinePlayback.ts';
 
 const MIN_CLIP_DURATION = 0.05;
 
@@ -8,7 +9,7 @@ export function getSequentialClipStartTimes(
 ): number[] {
   let cursor = existingClips.reduce(
     (end, clip) =>
-      Math.max(end, clip.startTime + Math.max(0, clip.duration - clip.trimEnd)),
+      Math.max(end, clip.startTime + getTimelineClipDuration(clip)),
     0,
   );
   return durations.map((duration) => {

@@ -16,6 +16,11 @@ export interface TimelineMediaSyncDecision {
   sourceTime: number;
 }
 
+export function getTimelineClipDuration(clip: TimelineClip): number {
+  const rate = Math.max(0.0001, clip.playbackRate || 1);
+  return Math.max(0, clip.duration - clip.trimEnd) / rate;
+}
+
 export function getTimelineClockTime(
   startedTime: number,
   startedAtMs: number,
@@ -31,7 +36,7 @@ export function getTimelinePlaybackState(
   clip: TimelineClip,
   currentTime: number,
 ): TimelinePlaybackState {
-  const effectiveDuration = Math.max(0, clip.duration - clip.trimEnd);
+  const effectiveDuration = getTimelineClipDuration(clip);
   const inRange =
     currentTime >= clip.startTime &&
     currentTime < clip.startTime + effectiveDuration;
@@ -48,7 +53,11 @@ export function getTimelinePlaybackState(
     shouldRun,
     muted,
     volume: Math.max(0, Math.min(1, track.volume * clip.volume)),
-    sourceTime: Math.max(0, clip.trimStart + currentTime - clip.startTime),
+    sourceTime: Math.max(
+      0,
+      clip.trimStart +
+        (currentTime - clip.startTime) * (clip.playbackRate || 1),
+    ),
   };
 }
 
